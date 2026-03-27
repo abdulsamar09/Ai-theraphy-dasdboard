@@ -1,0 +1,121 @@
+You are a senior FastAPI backend engineer. 
+You will update ONLY the backend code (main.py) for the “Therapy Chat Demo (Pilot)” system.
+
+CONTEXT:
+- Frontend dashboard is already built.
+- Backend is FastAPI with endpoints: /health, /api/tts, /api/stt, /auth/signup, /auth/login, /auth/status, and websocket /ws/chat.
+- We must implement new client requirements precisely.
+
+CRITICAL CLIENT REQUIREMENTS:
+1) Session Timer Logic / Setup Mode
+- Timer must NOT start automatically.
+- There must be a “Setup/Preparation Mode” before session starts.
+- Therapist enters patient age, sex, voice configuration.
+- Timer/session becomes ACTIVE ONLY when therapist clicks “Start Therapy”.
+- Backend must maintain session_active state per websocket connection.
+(Implement a WS message type: {type:"session_control", command:"START_THERAPY"} and update session state.)
+
+2) Supervision Mode
+- Normal: AI interacts directly with patient.
+- Supervision: therapist monitors and guides AI with greater control over instructions/flow.
+- Implement mode in session_config and enforce prompt differences.
+(mode values: "normal" | "supervision" | "roleplay".)
+
+3) Privacy / No PHI storage (ABSOLUTE)
+- NO clinical notes storage, NO transcripts storage, NO patient identifiable data storage, even if encrypted.
+- Remove/disable any persistence arrays (billing logs, session logs, transcript buffers saved server-side).
+- Session state must be memory-only and per websocket connection and destroyed on disconnect.
+- If any debug endpoint stores content, strip content and return only non-PHI counters (optional).
+
+4) Emotionality Score
+- Replace any dual sentiment logic with a SINGLE “Emotionality Score” (0–100).
+- Define calculation clearly.
+- Backend must provide a lightweight metric:
+  Option A (preferred): compute emotionality score from the last patient utterance text using a simple heuristic (keywords, punctuation, intensity words) without storing full transcript.
+  Option B: ask LLM to output an emotionality score but DO NOT store patient text beyond request scope.
+
+Return this score to frontend via websocket message type:
+{type:"metrics", emotionality_score: <int 0..100>, trust_score:<float>, pacing_score:<float>}
+(If trust/pacing are still used, keep them non-PHI.)
+
+5) Whisper Line – Dual Audio Channel (Backend side)
+- Whisper must support VOICE input, not only text.
+- Backend already has /api/stt (speech to text). We will support whisper voice by:
+  - Frontend sends whisper audio to /api/stt with metadata whisper=true OR uses a separate endpoint /api/stt/whisper (preferred).
+- Provide a clean backend contract:
+  POST /api/stt accepts multipart file and optional form field "channel" = "patient" | "therapist" | "whisper".
+  Response returns JSON: {text:"..."}
+- Add websocket message type for whisper:
+  {type:"whisper", text:"..."} treated as high-priority instruction injected into the system prompt.
+
+6) Microphone Controls (Backend support)
+- We need distinct channels: patient mic, therapist mic, whisper mic.
+- Backend must accept /api/stt with channel metadata.
+- Websocket must accept:
+  {type:"user_message", text:"..."}   # from patient
+  {type:"therapist_message", text:"..."} # optional
+  {type:"whisper", text:"..."}        # private instruction
+
+7) Voice Configuration Controls (Tempo + Pitch + Live Adjust)
+- Under Voice config:
+  tempo presets: slow/normal/fast
+  pitch presets: low/normal/high
+  live adjust buttons: faster/slower/higher/lower
+- Backend must support /api/tts request body:
+  {
+    text: "...",
+    voice_gender: "female"|"male",
+    tempo: "slow"|"normal"|"fast",
+    pitch: "low"|"normal"|"high",
+    speed: float (optional),
+    pitch_shift: float/int (optional)
+  }
+- Clamp speed 0.7–1.3.
+- Ensure every TTS call uses latest session voice config received through websocket session_config.
+
+IMPLEMENTATION TASKS:
+A) Define a SessionState dataclass per websocket connection:
+- session_active: bool (default False)
+- mode: normal/supervision/roleplay
+- ai_role: therapist/patient (for roleplay)
+- patient_age, patient_sex, notes (BUT notes must NOT be stored persistently; only keep in memory for the active connection; clear on end)
+- voice_gender, tempo, pitch, speed, pitch_shift
+- last_patient_utterance (optional, but do NOT keep long history; keep only last message for metrics; clear frequently)
+
+B) Update /ws/chat websocket handler:
+- On connect: initialize SessionState with session_active False.
+- Handle incoming message types:
+  - session_config: update state fields
+  - session_control START_THERAPY: set session_active True
+  - session_control PAUSE/RESUME: toggle paused state
+  - whisper: store as last_whisper_instruction and inject into next prompt
+  - user_message: if session_active False, respond with error event {type:"error", code:"SESSION_NOT_STARTED"}; else stream AI response
+- Streaming: send {type:"chunk", content:"..."} and final {type:"final", content:"..."}.
+
+C) System Prompt builder:
+- Must reflect mode:
+  - normal: AI therapist talking to patient
+  - supervision: AI therapist but therapist guidance has top priority; respond more conservatively and follow whispered instructions
+  - roleplay: ai_role determines if AI is therapist or patient
+- Whisper instruction must override behavior (high priority).
+- DO NOT store transcripts.
+
+D) Ensure CORS:
+- allow localhost:8000 for local dashboard testing
+- allow replit domains if needed
+
+E) Keep auth endpoints as pilot in-memory only. Do NOT store PHI. Allow forgot password text change is frontend; backend not required unless already present.
+
+OUTPUT:
+- Provide updated main.py (complete file).
+- Include a short “API Contract Summary” section at the bottom as comments, listing websocket message schemas and REST schemas.
+- Do NOT modify frontend files.
+- Do NOT add databases.
+- Keep code stable and production-safe.
+
+Before finalizing, run a quick self-check reasoning:
+- /health returns 200
+- websocket path /ws/chat exists
+- /api/stt supports channel field
+- /api/tts supports tempo/pitch/speed clamps
+- No persistence of notes/transcripts anywhere
