@@ -463,6 +463,10 @@ async def websocket_chat(websocket: WebSocket):
 
 app.mount("/dashboard", StaticFiles(directory="frontend-dashboard"), name="dashboard")
 
+@app.get("/")
+async def root():
+    return FileResponse("frontend-dashboard/index.html")
+
 @app.get("/dashboard-app")
 async def dashboard_view():
     return FileResponse("frontend-dashboard/index.html")
