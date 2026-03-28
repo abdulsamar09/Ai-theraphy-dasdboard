@@ -13,7 +13,8 @@ from openai import OpenAI
 
 # --- CONFIG & INITIALIZATION ---
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+from openai import AsyncOpenAI
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 app = FastAPI(title="AI Therapy Platform - Production")
 
@@ -117,29 +118,38 @@ def get_tts_voice(session: SessionState) -> str:
 
 def get_system_prompt(session: SessionState) -> str:
     base = (
-        "You are a part of a clinical AI Therapy Training Platform. "
-        f"Approach: {session.approach}. "
+        "You are an AI on a Clinical Therapy Training & Supervision Platform. "
+        f"Therapeutic Approach: {session.approach}. "
     )
     if session.ai_role == "therapist":
-        role_desc = f"Role: THERAPIST. Patient: {session.patient_age}y/o {session.patient_sex}. Methodology: {session.approach}."
+        role_desc = f"Role: ACT AS THE THERAPIST. Patient: {session.patient_age}y/o {session.patient_sex}. Methodology: {session.approach}."
     else:
-        role_desc = f"Role: PATIENT. Act as a {session.patient_age}y/o {session.patient_sex}. Respond emotionally to the therapist."
+        role_desc = f"Role: ACT AS THE PATIENT. Act as a {session.patient_age}y/o {session.patient_sex} in a therapy session. Respond emotionally to the therapist's questions."
 
-    # Pitch directive injected into system prompt for best-effort emotionalization
-    pitch_hint = PITCH_DIRECTIVES.get(session.pitch, "")
-
+    # Directives from supervisor (Crucial Priority)
     hidden_parts = []
+    
+    # 1. Permanent session config instructions
     if session.instruction_to_ai:
-        hidden_parts.append(f"[INSTRUCTIONS]: {session.instruction_to_ai}")
+        hidden_parts.append(f"### [SESSION-LEVEL INSTRUCTIONS]: {session.instruction_to_ai}")
+        
+    # 2. Dynamic clinician instructions (Highest priority)
     if session.therapist_text_instruction:
-        hidden_parts.append(f"[THERAPIST DIRECTIVE]: {session.therapist_text_instruction}")
+        hidden_parts.append(f"### [SUPERVISOR IMMEDIATE DIRECTIVE - DO NOT IGNORE]: {session.therapist_text_instruction}")
+        
     if session.therapist_whisper:
-        hidden_parts.append(f"[INSTRUCTOR WHISPER]: {session.therapist_whisper}")
-    if pitch_hint:
-        hidden_parts.append(pitch_hint)
+        hidden_parts.append(f"### [INSTRUCTOR WHISPER - DO NOT IGNORE]: {session.therapist_whisper}")
 
-    hidden = ("\n" + "\n".join(hidden_parts)) if hidden_parts else ""
-    return base + role_desc + hidden
+    # Pitch/Tone hints
+    pitch_hint = PITCH_DIRECTIVES.get(session.pitch, "")
+    if pitch_hint:
+        hidden_parts.append(f"Tone Hint: {pitch_hint}")
+
+    hidden = ("\n\n" + "\n".join(hidden_parts)) if hidden_parts else ""
+    
+    # Combine everything. We reinforce instructions by putting them at the VERY end
+    # of the system prompt to avoid being overridden by older conversation history.
+    return base + role_desc + hidden + "\n\nCRITICAL: Always follow the [SUPERVISOR IMMEDIATE DIRECTIVE] if present, even if it contradicts the previous flow."
 
 async def broadcast_to_session(session: SessionState, message: dict, exclude: Optional[WebSocket] = None):
     targets = []
@@ -202,9 +212,10 @@ async def speech_to_text(request: Request):
         with open(temp_name, "wb") as f:
             f.write(content)
         with open(temp_name, "rb") as f:
-            res = client.audio.transcriptions.create(model="whisper-1", file=f)
+            res = await client.audio.transcriptions.create(model="whisper-1", file=f)
         return {"text": res.text}
     except Exception as e:
+        print(f"STT Error: {e}")
         return {"error": str(e)}
     finally:
         if os.path.exists(temp_name):
@@ -230,16 +241,19 @@ async def text_to_speech(req: Request):
     pitch_directive = PITCH_DIRECTIVES.get(pitch, "")
     text = data.get("text", "")
     if pitch_directive:
-        # Audio models partially respond to tonal cues in SSML-style hints embedded inline
         text = f"{pitch_directive} {text}".strip()
 
-    response = client.audio.speech.create(
-        model="tts-1",
-        voice=voice,
-        input=text,
-        speed=speed
-    )
-    return StreamingResponse(response.iter_bytes(), media_type="audio/mpeg")
+    try:
+        response = await client.audio.speech.create(
+            model="tts-1",
+            voice=voice,
+            input=text,
+            speed=speed
+        )
+        return StreamingResponse(response.iter_bytes(), media_type="audio/mpeg")
+    except Exception as e:
+        print(f"TTS Error: {e}")
+        return HTTPException(status_code=500, detail=str(e))
 
 # --- WEBSOCKET HANDLER ---
 
@@ -410,9 +424,9 @@ async def websocket_chat(websocket: WebSocket):
                 session.therapist_text_instruction = ""
 
                 try:
-                    stream = client.chat.completions.create(model="gpt-4o-mini", messages=prompt_messages, stream=True)
+                    stream = await client.chat.completions.create(model="gpt-4o-mini", messages=prompt_messages, stream=True)
                     full_text = ""
-                    for chunk in stream:
+                    async for chunk in stream:
                         delta = chunk.choices[0].delta.content or ""
                         if delta:
                             full_text += delta
@@ -430,6 +444,7 @@ async def websocket_chat(websocket: WebSocket):
                         "speed": session.speed,
                     })
                 except Exception as e:
+                    print(f"LLM Error: {e}")
                     await websocket.send_json({"type": "error", "message": f"AI Error: {str(e)}"})
 
             # 6. WHISPER MIC (spoken, private)

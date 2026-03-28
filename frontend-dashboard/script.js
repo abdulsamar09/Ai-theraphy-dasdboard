@@ -110,6 +110,12 @@ class TherapyDashboard {
 
         // Store most-recent patient audio blob for relay
         this._lastPatientAudioBlob = null;
+        
+        // Audio Visualizer setup
+        this.audioCtx = null;
+        this.analyser = null;
+        this.visData = new Uint8Array(20);
+        this.visInterval = null;
 
         this.init();
     }
@@ -596,6 +602,13 @@ class TherapyDashboard {
 
             case "final":
                 this.aiTranscript.innerText = "AI: " + data.text;
+                // Add to consultation log
+                if (this.consultationLog) {
+                    const entry = document.createElement("div");
+                    entry.style.cssText = "color: #cbd5e1; border-left: 2px solid #cbd5e1; padding-left: 8px; margin-bottom: 6px; font-size: 11px; opacity: 0.8;";
+                    entry.innerText = `[AI] ${data.text}`;
+                    this.consultationLog.prepend(entry);
+                }
                 // Use voice config from final message (set by backend from session state)
                 this.playTTS(data.text, {
                     voice_gender: data.voice_gender || this.voiceState.gender,
@@ -682,41 +695,107 @@ class TherapyDashboard {
 
     async startMic(channel) {
         if (!this.sessionId && channel === "patient") return this.toast("No active session");
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        this.mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-        this.audioChunks = [];
-        this.mediaRecorder.ondataavailable = (e) => {
-            if (e.data.size > 0) {
-                this.audioChunks.push(e.data);
-                // Real-time relay for patient voice (call-like)
-                if (channel === "patient" && this.sessionId) {
-                    this._relayPatientAudioToTherapist(e.data);
-                }
-            }
-        };
-        this.mediaRecorder.onstop = async () => {
-            const blob = new Blob(this.audioChunks, { type: "audio/webm" });
-
-            const fd = new FormData();
-            fd.append("file", blob);
-            const res = await fetch(CONFIG.ENDPOINTS.STT, { method: "POST", body: fd });
-            const data = await res.json();
-            if (data.text) {
-                const type =
-                    channel === "patient" ? "user_message" :
-                    channel === "therapist" ? "therapist_message" :
-                    "whisper";
-                this.wsSend({ type, text: data.text });
-            }
-            stream.getTracks().forEach(t => t.stop());
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
-            // If we were streaming, notify streamer to end (optional)
-            if (this.isSupervising) this.audioStreamer?.stop(); 
-        };
-        // Start recording with 250ms chunks for real-time relay
-        this.mediaRecorder.start(250);
-        this.activeChannel = channel;
-        this.updateMicUI(true, channel);
+            // Setup Visualizer
+            this.setupVisualizer(stream);
+
+            // Choose best mimeType
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm; codecs=opus') ? 'audio/webm; codecs=opus' : 'audio/webm';
+            console.log("Using mimeType:", mimeType);
+
+            this.mediaRecorder = new MediaRecorder(stream, { mimeType });
+            this.audioChunks = [];
+            
+            this.mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    this.audioChunks.push(e.data);
+                    // Real-time relay for patient voice (call-like)
+                    if (channel === "patient" && this.sessionId) {
+                        this._relayPatientAudioToTherapist(e.data);
+                    }
+                }
+            };
+
+            this.mediaRecorder.onstop = async () => {
+                this.stopVisualizer();
+                const blob = new Blob(this.audioChunks, { type: "audio/webm" });
+                console.log(`Recording stopped. Blob size: ${blob.size} bytes`);
+                
+                if (blob.size < 500) {
+                    console.warn("Recording too short, ignoring.");
+                    return;
+                }
+
+                this.toast("Processing audio...");
+                
+                const fd = new FormData();
+                fd.append("file", blob);
+                try {
+                    const res = await fetch(CONFIG.ENDPOINTS.STT, { method: "POST", body: fd });
+                    const data = await res.json();
+                    if (data.text) {
+                        const type =
+                            channel === "patient" ? "user_message" :
+                            channel === "therapist" ? "therapist_message" :
+                            "whisper";
+                        this.wsSend({ type, text: data.text });
+                        console.log("STT Result:", data.text);
+                    } else if (data.error) {
+                        this.toast("Server STT error: " + data.error);
+                    }
+                } catch (e) {
+                    console.error("Fetch STT error:", e);
+                    this.toast("STT Connection Error");
+                }
+                
+                stream.getTracks().forEach(t => t.stop());
+            };
+
+            // Start recording with 250ms chunks
+            this.mediaRecorder.start(250);
+            this.activeChannel = channel;
+            this.updateMicUI(true, channel);
+            this.toast(`${channel.toUpperCase()} mic active.`);
+
+        } catch (err) {
+            console.error("Mic access error:", err);
+            this.toast("Microphone error: Please check permissions.");
+        }
+    }
+
+    setupVisualizer(stream) {
+        if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = this.audioCtx.createMediaStreamSource(stream);
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 64;
+        source.connect(this.analyser);
+        
+        if (this.audioWave) this.audioWave.style.opacity = "1";
+        
+        const bars = Array.from(this.audioWave.querySelectorAll("span"));
+        this.visInterval = setInterval(() => {
+            const data = new Uint8Array(this.analyser.frequencyBinCount);
+            this.analyser.getByteFrequencyData(data);
+            
+            // Map data to bars
+            bars.forEach((bar, i) => {
+                const val = (data[i] || 0) / 255;
+                const height = Math.max(4, val * 35);
+                bar.style.height = `${height}px`;
+                bar.style.background = `rgba(56, 189, 248, ${0.4 + val * 0.6})`;
+            });
+        }, 80);
+    }
+
+    stopVisualizer() {
+        if (this.visInterval) clearInterval(this.visInterval);
+        if (this.audioWave) {
+             this.audioWave.style.opacity = "0";
+             this.audioWave.querySelectorAll("span").forEach(b => b.style.height = "4px");
+        }
     }
 
     stopMic() {
