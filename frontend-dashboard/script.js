@@ -108,9 +108,11 @@ class TherapyDashboard {
         this.monitoringPatientAudio = false;
         this.audioStreamer = null; // initialized when needed 
 
-        // Store most-recent patient audio blob for relay
-        this._lastPatientAudioBlob = null;
-        
+        // 🎙️ Sentence-based TTS Queue (to reduce delay)
+        this.ttsQueue = [];
+        this.isTTSSpeaking = false;
+        this.currentTextBuffer = "";
+
         // Audio Visualizer setup
         this.audioCtx = null;
         this.analyser = null;
@@ -581,7 +583,6 @@ class TherapyDashboard {
             case "monitor_patient_text":
                 this.patientTranscript.innerText = "Patient: " + data.text;
                 this.patientTranscript.classList.remove("opacity-50");
-                // Log in consultation log
                 if (this.consultationLog) {
                     const entry = document.createElement("div");
                     entry.style.cssText = "color: #94a3b8; border-left: 2px solid var(--color-primary); padding-left: 8px; margin-bottom: 6px; font-size: 11px;";
@@ -592,7 +593,9 @@ class TherapyDashboard {
 
             case "chunk":
                 if (this.aiTranscript.innerText.includes("Ready")) this.aiTranscript.innerText = "AI: ";
-                this.aiTranscript.innerText += data.text;
+                const chunk = data.text;
+                this.aiTranscript.innerText += chunk;
+                this.processTextForTTS(chunk); // New streaming logic
                 break;
 
             case "monitor_ai_reply":
@@ -602,20 +605,15 @@ class TherapyDashboard {
 
             case "final":
                 this.aiTranscript.innerText = "AI: " + data.text;
-                // Add to consultation log
+                // Add to log
                 if (this.consultationLog) {
                     const entry = document.createElement("div");
                     entry.style.cssText = "color: #cbd5e1; border-left: 2px solid #cbd5e1; padding-left: 8px; margin-bottom: 6px; font-size: 11px; opacity: 0.8;";
                     entry.innerText = `[AI] ${data.text}`;
                     this.consultationLog.prepend(entry);
                 }
-                // Use voice config from final message (set by backend from session state)
-                this.playTTS(data.text, {
-                    voice_gender: data.voice_gender || this.voiceState.gender,
-                    tempo: data.tempo || this.voiceState.tempo,
-                    pitch: data.pitch || this.voiceState.pitch,
-                    speed: data.speed || this.voiceState.speed
-                });
+                // Handle any remaining text in buffer
+                this.processTextForTTS("", true); 
                 break;
 
             case "credits":
@@ -697,22 +695,40 @@ class TherapyDashboard {
         if (!this.sessionId && channel === "patient") return this.toast("No active session");
         
         try {
+            // Resume Context (Browsers block it until user interaction)
+            if (this.audioCtx && this.audioCtx.state === 'suspended') {
+                await this.audioCtx.resume();
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
             // Setup Visualizer
             this.setupVisualizer(stream);
 
-            // Choose best mimeType
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm; codecs=opus') ? 'audio/webm; codecs=opus' : 'audio/webm';
-            console.log("Using mimeType:", mimeType);
+            // Robust mimeType Selection
+            const types = [
+                'audio/webm; codecs=opus',
+                'audio/webm',
+                'audio/ogg; codecs=opus',
+                'audio/mp4',
+                ''
+            ];
+            let mimeType = '';
+            for (const t of types) {
+                if (t === '' || MediaRecorder.isTypeSupported(t)) {
+                    mimeType = t;
+                    break;
+                }
+            }
+            console.log("Using recorder mimeType:", mimeType);
 
-            this.mediaRecorder = new MediaRecorder(stream, { mimeType });
+            this.mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
             this.audioChunks = [];
             
             this.mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
                     this.audioChunks.push(e.data);
-                    // Real-time relay for patient voice (call-like)
+                    // Real-time relay to therapist
                     if (channel === "patient" && this.sessionId) {
                         this._relayPatientAudioToTherapist(e.data);
                     }
@@ -721,15 +737,12 @@ class TherapyDashboard {
 
             this.mediaRecorder.onstop = async () => {
                 this.stopVisualizer();
-                const blob = new Blob(this.audioChunks, { type: "audio/webm" });
-                console.log(`Recording stopped. Blob size: ${blob.size} bytes`);
+                const blob = new Blob(this.audioChunks, { type: this.mediaRecorder.mimeType || "audio/webm" });
+                console.log(`Stop bit. Blob size: ${blob.size}`);
                 
-                if (blob.size < 500) {
-                    console.warn("Recording too short, ignoring.");
-                    return;
-                }
+                if (blob.size < 1000) return console.warn("Audio too short.");
 
-                this.toast("Processing audio...");
+                this.toast("Processing...");
                 
                 const fd = new FormData();
                 fd.append("file", blob);
@@ -742,60 +755,113 @@ class TherapyDashboard {
                             channel === "therapist" ? "therapist_message" :
                             "whisper";
                         this.wsSend({ type, text: data.text });
-                        console.log("STT Result:", data.text);
-                    } else if (data.error) {
-                        this.toast("Server STT error: " + data.error);
                     }
                 } catch (e) {
-                    console.error("Fetch STT error:", e);
-                    this.toast("STT Connection Error");
+                    this.toast("Connection Error");
                 }
-                
                 stream.getTracks().forEach(t => t.stop());
             };
 
-            // Start recording with 250ms chunks
             this.mediaRecorder.start(250);
             this.activeChannel = channel;
             this.updateMicUI(true, channel);
-            this.toast(`${channel.toUpperCase()} mic active.`);
 
         } catch (err) {
-            console.error("Mic access error:", err);
-            this.toast("Microphone error: Please check permissions.");
+            console.error("Mic error:", err);
+            this.toast("Microphone error");
         }
     }
 
-    setupVisualizer(stream) {
-        if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const source = this.audioCtx.createMediaStreamSource(stream);
-        this.analyser = this.audioCtx.createAnalyser();
-        this.analyser.fftSize = 64;
-        source.connect(this.analyser);
+    // ─── STREAMING TTS LOGIC ──────────────────────────────────────────────────
+
+    processTextForTTS(chunk, isFinal = false) {
+        this.currentTextBuffer += chunk;
+
+        // Split by punctuation for natural breaks
+        // Matches periods, question marks, exclamation points followed by space or end of string
+        const sentences = this.currentTextBuffer.split(/([.?!:;]\s+|[.?!:;]$|\n+)/);
         
-        if (this.audioWave) this.audioWave.style.opacity = "1";
-        
-        const bars = Array.from(this.audioWave.querySelectorAll("span"));
-        this.visInterval = setInterval(() => {
-            const data = new Uint8Array(this.analyser.frequencyBinCount);
-            this.analyser.getByteFrequencyData(data);
-            
-            // Map data to bars
-            bars.forEach((bar, i) => {
-                const val = (data[i] || 0) / 255;
-                const height = Math.max(4, val * 35);
-                bar.style.height = `${height}px`;
-                bar.style.background = `rgba(56, 189, 248, ${0.4 + val * 0.6})`;
+        // We iterate and combine the split sentence with its delimiter
+        let completeSentences = [];
+        for (let i = 0; i < sentences.length - 1; i += 2) {
+            const sentence = (sentences[i] + (sentences[i+1] || "")).trim();
+            if (sentence.length > 3) {
+                completeSentences.push(sentence);
+            }
+        }
+
+        if (completeSentences.length > 0) {
+            // Remaining text stays in buffer
+            const lastFullIdx = this.currentTextBuffer.lastIndexOf(completeSentences[completeSentences.length - 1]);
+            this.currentTextBuffer = this.currentTextBuffer.substring(lastFullIdx + completeSentences[completeSentences.length-1].length);
+
+            completeSentences.forEach(s => this.addToTTSQueue(s));
+        }
+
+        if (isFinal && this.currentTextBuffer.trim().length > 0) {
+            this.addToTTSQueue(this.currentTextBuffer.trim());
+            this.currentTextBuffer = "";
+        }
+    }
+
+    addToTTSQueue(text) {
+        console.log("Adding to TTS Queue:", text);
+        this.ttsQueue.push(text);
+        if (!this.isTTSSpeaking) this.playNextInTTSQueue();
+    }
+
+    async playNextInTTSQueue() {
+        if (this.ttsQueue.length === 0) {
+            this.isTTSSpeaking = false;
+            return;
+        }
+
+        this.isTTSSpeaking = true;
+        const text = this.ttsQueue.shift();
+
+        try {
+            const payload = {
+                text,
+                voice_gender: this.voiceState.gender,
+                tempo: this.voiceState.tempo,
+                pitch: this.voiceState.pitch,
+                speed: this.voiceState.speed
+            };
+
+            const res = await fetch(CONFIG.ENDPOINTS.TTS, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
             });
-        }, 80);
-    }
 
-    stopVisualizer() {
-        if (this.visInterval) clearInterval(this.visInterval);
-        if (this.audioWave) {
-             this.audioWave.style.opacity = "0";
-             this.audioWave.querySelectorAll("span").forEach(b => b.style.height = "4px");
+            if (!res.ok) throw new Error("TTS Failed");
+
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+
+            // Visualizer support for TTS
+            if (this.audioWave) this.audioWave.style.opacity = "1";
+            
+            await new Promise((resolve) => {
+                audio.onended = () => {
+                    URL.revokeObjectURL(url);
+                    resolve();
+                };
+                audio.onerror = resolve;
+                audio.play().catch(resolve);
+            });
+
+            if (this.ttsQueue.length === 0 && this.audioWave) {
+                 this.audioWave.style.opacity = "0";
+            }
+
+        } catch (e) {
+            console.error("Queue TTS error:", e);
         }
+
+        // Delay slightly between sentences for natural flow
+        setTimeout(() => this.playNextInTTSQueue(), 150);
     }
 
     stopMic() {
