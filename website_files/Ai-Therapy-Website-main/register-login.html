@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Licensed Clinician Portal</title>
+  <!-- custom css link -->
+  <link rel="stylesheet" href="./assets/css/style.css">
+  <style>
+    :root{
+      --bg:#020617;
+      --panel:#0f172a;
+      --panel2:#111827;
+      --card:#0b1220;
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --muted2:#94a3b8;
+      --line:#334155;
+      --accent:#22d3ee;
+      --accent-soft:rgba(34,211,238,.12);
+      --ok:#10b981;
+      --warn:#f59e0b;
+      --bad:#fb7185;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg,#020617 0%, #0f172a 100%);
+    }
+    .wrap{max-width:1220px;margin:0 auto;padding:34px 20px 64px}
+    .hero{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:24px;
+      margin-bottom:28px;
+      align-items:end;
+      background-color: transparent !important;
+      background-image: none !important;
+    }
+    .badge{
+      display:inline-block;
+      padding:8px 14px;
+      border-radius:999px;
+      background:var(--accent-soft);
+      color:#a5f3fc;
+      border:1px solid rgba(34,211,238,.35);
+      font-size:14px;
+    }
+    h1{
+      font-size:46px;
+      line-height:1.08;
+      margin:16px 0 12px;
+      letter-spacing:-0.02em;
+    }
+    .sub{
+      font-size:18px;
+      line-height:1.65;
+      color:var(--muted);
+      max-width:780px;
+    }
+    .panel{
+      background:rgba(17,24,39,.75);
+      border:1px solid var(--line);
+      border-radius:26px;
+      padding:18px;
+      box-shadow:0 18px 40px rgba(0,0,0,.22);
+    }
+    .status-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      margin-bottom:14px;
+    }
+    .eyebrow{
+      color:#a5f3fc;
+      font-size:12px;
+      text-transform:uppercase;
+      letter-spacing:.18em;
+      font-weight:700;
+    }
+    .status-title{font-size:18px;font-weight:700;margin-top:6px}
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid #475569;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .pill.draft{background:#1e293b;color:#e2e8f0}
+    .pill.pending{background:rgba(245,158,11,.12);color:#fde68a;border-color:rgba(245,158,11,.35)}
+    .pill.approved{background:rgba(16,185,129,.12);color:#bbf7d0;border-color:rgba(16,185,129,.35)}
+    .pill.rejected{background:rgba(251,113,133,.12);color:#fecdd3;border-color:rgba(251,113,133,.35)}
+    .mini-grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+    }
+    .mini-step{
+      background:#020617;
+      border:1px solid #1e293b;
+      border-radius:18px;
+      padding:16px;
+    }
+    .mini-step h3{
+      margin:0 0 8px;
+      font-size:14px;
+    }
+    .mini-step p{
+      margin:0;
+      font-size:12px;
+      line-height:1.6;
+      color:var(--muted2);
+    }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:28px;
+    }
+    .card{
+      background:rgba(15,23,42,.92);
+      border:1px solid var(--line);
+      border-radius:30px;
+      padding:28px;
+      box-shadow:0 18px 40px rgba(0,0,0,.24);
+    }
+    .card h2{
+      margin:10px 0 10px;
+      font-size:30px;
+      letter-spacing:-0.02em;
+    }
+    .help{
+      color:var(--muted);
+      margin:0 0 20px;
+      line-height:1.65;
+      font-size:14px;
+    }
+    .top-row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      margin-bottom:6px;
+    }
+    .tag{
+      padding:10px 12px;
+      font-size:12px;
+      border-radius:16px;
+      border:1px solid rgba(34,211,238,.2);
+      background:rgba(34,211,238,.1);
+      color:#a5f3fc;
+      white-space:nowrap;
+    }
+    .row2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+    }
+    .field{margin-bottom:16px}
+    label{
+      display:block;
+      margin-bottom:8px;
+      font-size:14px;
+      font-weight:700;
+      color:#e2e8f0;
+    }
+    input, select{
+      width:100%;
+      padding:14px 15px;
+      border-radius:18px;
+      border:1px solid #475569;
+      background:#020617;
+      color:#fff;
+      font-size:15px;
+      outline:none;
+    }
+    input:focus, select:focus{border-color:var(--accent)}
+    .filebox{
+      border:1px dashed #475569;
+      border-radius:18px;
+      padding:14px;
+      background:#020617;
+    }
+    .tiny{
+      font-size:12px;
+      color:var(--muted2);
+      margin-top:8px;
+      line-height:1.5;
+    }
+    .good{color:#86efac}
+    .error{
+      color:#fda4af;
+      font-size:12px;
+      margin-top:7px;
+      display:none;
+    }
+    .checks{
+      margin:6px 0 18px;
+      border:1px solid #1e293b;
+      border-radius:18px;
+      background:rgba(2,6,23,.72);
+      padding:16px;
+    }
+    .checkrow{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      margin-bottom:12px;
+      font-size:14px;
+      line-height:1.6;
+      color:var(--muted);
+    }
+    .checkrow:last-child{margin-bottom:0}
+    .checkrow input[type="checkbox"]{
+      width:16px;height:16px;flex:0 0 auto;margin-top:4px;
+    }
+    .linkbtn, .linkish{
+      color:#a5f3fc;
+      text-decoration:underline;
+      text-underline-offset:4px;
+      background:none;
+      border:none;
+      padding:0;
+      cursor:pointer;
+      font:inherit;
+    }
+    .btn{
+      width:100%;
+      border:none;
+      border-radius:18px;
+      padding:15px 18px;
+      font-size:16px;
+      font-weight:700;
+      cursor:pointer;
+      transition:transform .15s ease, opacity .15s ease;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{background:var(--accent);color:#082f49}
+    .btn-secondary{background:#f8fafc;color:#0f172a}
+    .btn-disabled{
+      background:#1e293b;
+      color:#64748b;
+      cursor:not-allowed;
+    }
+    .notice{
+      margin-top:16px;
+      border-radius:18px;
+      padding:14px 16px;
+      font-size:14px;
+      line-height:1.6;
+      display:none;
+    }
+    .notice.pending{
+      display:none;
+      background:rgba(245,158,11,.12);
+      border:1px solid rgba(245,158,11,.3);
+      color:#fde68a;
+    }
+    .workflow-box{
+      border:1px solid #1e293b;
+      border-radius:18px;
+      background:rgba(2,6,23,.62);
+      padding:16px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+    }
+    .section-grid{
+      display:grid;
+      gap:28px;
+    }
+    .info-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+      margin-top:16px;
+    }
+    .info{
+      border:1px solid #1e293b;
+      background:#020617;
+      border-radius:18px;
+      padding:16px;
+    }
+    .info h3{
+      margin:0 0 8px;
+      font-size:16px;
+    }
+    .info p{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+    .prod-notes{
+      display:grid;
+      gap:12px;
+      margin-top:16px;
+    }
+    .prod-note{
+      border:1px solid #1e293b;
+      background:#020617;
+      border-radius:18px;
+      padding:14px 16px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.65;
+    }
+    .modal{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.68);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:16px;
+      z-index:1000;
+    }
+    .modal.open{display:flex}
+    .modal-card{
+      width:min(860px, 100%);
+      max-height:84vh;
+      overflow:hidden;
+      border-radius:28px;
+      border:1px solid #334155;
+      background:#020617;
+      box-shadow:0 24px 60px rgba(0,0,0,.45);
+    }
+    .modal-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:18px 20px;
+      border-bottom:1px solid #1e293b;
+    }
+    .modal-head h3{margin:0;font-size:22px}
+    .close{
+      background:none;
+      color:#cbd5e1;
+      border:1px solid #475569;
+      border-radius:999px;
+      width:36px;height:36px;
+      cursor:pointer;
+      font-size:18px;
+    }
+    .modal-body{
+      padding:20px;
+      overflow:auto;
+      max-height:calc(84vh - 74px);
+      white-space:pre-line;
+      color:var(--muted);
+      line-height:1.8;
+      font-size:14px;
+    }
+    .forgot{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin:4px 0 18px;
+      color:var(--muted);
+      font-size:14px;
+    }
+    @media (max-width: 980px){
+      .hero,.grid,.row2,.info-grid,.mini-grid{grid-template-columns:1fr}
+      h1{font-size:36px}
+      .tag{white-space:normal}
+      .top-row,.status-head,.forgot{display:block}
+      .tag,.pill{margin-top:10px}
+    }
+    /* Common Header Support */
+    .header {
+      background-color: white !important;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1) !important;
+      position: fixed !important;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100px;
+      padding-block: 16px;
+      z-index: 1001;
+    }
+    .header .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1220px;
+      margin: 0 auto;
+      padding-inline: 16px;
+    }
+    .navbar-link {
+       color: var(--rich-black-fogra-29) !important;
+       font-size: 1.6rem !important;
+       text-transform: uppercase;
+       padding: 10px 24px;
+    }
+    .nav-open-btn {
+      color: var(--rich-black-fogra-29) !important;
+      font-size: 4rem;
+    }
+
+    main {
+       padding-top: 134px;
+    }
+  </style>
+</head>
+<body id="top">
+  <!-- #PRELOADER -->
+  <div class="preloader" data-preloader>
+    <div class="circle"></div>
+  </div>
+
+  <header class="header" data-header>
+    <div class="container">
+      <a href="index.html" class="logo" style="font-size: larger;">
+        <img src="./assets/images/therapy-now-logo-black.png" alt="Psychotherapy Now Logo" class="site-logo"
+          style="height: 80px; width: auto; display: block;">
+      </a>
+      <nav class="navbar" data-navbar>
+        <div class="navbar-top">
+          <a href="index.html" class="logo">
+            <img src="./assets/images/therapy-now-logo-black.png" alt="Psychotherapy Now Logo" class="site-logo"
+              style="height: 80px; width: auto; display: block;">
+          </a>
+          <button class="nav-close-btn" aria-label="close menu" data-nav-toggler>
+            <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+          </button>
+        </div>
+        <ul class="navbar-list">
+          <li class="navbar-item">
+            <a href="index.html" class="navbar-link title-md">Home</a>
+          </li>
+          <li class="navbar-item">
+            <a href="aboutus.html" class="navbar-link title-md">About Us</a>
+          </li>
+          <li class="navbar-item">
+            <a href="terms.html" class="navbar-link title-md">Terms of Use / Onboarding</a>
+          </li>
+          <li class="navbar-item">
+            <a href="pricing.html" class="navbar-link title-md">Pricing</a>
+          </li>
+          <li class="navbar-item auth-buttons-container">
+            <a href="register-login.html" class="navbar-link title-md auth-btn active">Register / Login</a>
+          </li>
+        </ul>
+      </nav>
+      <button class="nav-open-btn" aria-label="open menu" data-nav-toggler>
+        <ion-icon name="menu-outline"></ion-icon>
+      </button>
+      <div class="overlay" data-nav-toggler data-overlay></div>
+    </div>
+  </header>
+  <main>
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <div class="badge">Psychotherapy Platform for Licensed Clinicians</div>
+        <h1>Clinician registration and login</h1>
+        <div class="sub">
+        </div>
+      </div>
+      <div class="panel">
+        <div class="status-head">
+          <div>
+            <div class="eyebrow">Registration status</div>
+            <div class="status-title">Current account state</div>
+          </div>
+          <div id="statusPill" class="pill pending">Pending or Approved</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div class="top-row">
+          <div>
+            <div class="eyebrow">Registration</div>
+            <h2>Create your clinician account</h2>
+            <p class="help">
+              Complete all required fields. Until license is accepted.
+            </p>
+          </div>
+          <div class="tag">License verification required</div>
+        </div>
+
+        <form id="regForm" novalidate>
+          <div class="row2">
+            <div class="field">
+              <label for="firstName">First name</label>
+              <input id="firstName" type="text" placeholder="Enter first name" />
+              <div class="error" id="err-firstName">First name is required.</div>
+            </div>
+            <div class="field">
+              <label for="lastName">Last name</label>
+              <input id="lastName" type="text" placeholder="Enter last name" />
+              <div class="error" id="err-lastName">Last name is required.</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="state">State of licensure</label>
+            <select id="state">
+              <option value="">Select state</option>
+              <option>Alabama</option><option>Alaska</option><option>Arizona</option><option>Arkansas</option>
+              <option>California</option><option>Colorado</option><option>Connecticut</option><option>Delaware</option>
+              <option>Florida</option><option>Georgia</option><option>Hawaii</option><option>Idaho</option>
+              <option>Illinois</option><option>Indiana</option><option>Iowa</option><option>Kansas</option>
+              <option>Kentucky</option><option>Louisiana</option><option>Maine</option><option>Maryland</option>
+              <option>Massachusetts</option><option>Michigan</option><option>Minnesota</option><option>Mississippi</option>
+              <option>Missouri</option><option>Montana</option><option>Nebraska</option><option>Nevada</option>
+              <option>New Hampshire</option><option>New Jersey</option><option>New Mexico</option><option>New York</option>
+              <option>North Carolina</option><option>North Dakota</option><option>Ohio</option><option>Oklahoma</option>
+              <option>Oregon</option><option>Pennsylvania</option><option>Rhode Island</option><option>South Carolina</option>
+              <option>South Dakota</option><option>Tennessee</option><option>Texas</option><option>Utah</option>
+              <option>Vermont</option><option>Virginia</option><option>Washington</option><option>West Virginia</option>
+              <option>Wisconsin</option><option>Wyoming</option>
+            </select>
+            <div class="error" id="err-state">State of licensure is required.</div>
+          </div>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" placeholder="" />
+            <div class="error" id="err-email">Enter a valid email address.</div>
+          </div>
+
+          <div class="field">
+            <label for="license">Upload copy of state license</label>
+            <div class="filebox">
+              <input id="license" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+              <div class="tiny">Accepted formats: PDF, JPG, PNG. Manual review required before activation.</div>
+              <div class="tiny good" id="licenseSelected" style="display:none"></div>
+            </div>
+            <div class="error" id="err-license">A license file is required.</div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label for="username">Create user name</label>
+              <input id="username" type="text" placeholder="Choose a user name" />
+              <div class="error" id="err-username">User name is required.</div>
+            </div>
+            <div class="field">
+              <label for="password">Create password</label>
+              <input id="password" type="password" placeholder="8+ characters, letters and numbers" />
+              <div class="tiny">Minimum 8 characters. Must include letters and numbers.</div>
+              <div class="error" id="err-password">Use at least 8 characters with letters and numbers.</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="confirmPassword">Confirm password</label>
+            <input id="confirmPassword" type="password" placeholder="Re-enter password" />
+            <div class="error" id="err-confirmPassword">Passwords do not match.</div>
+          </div>
+
+          <div class="checks">
+            <div class="checkrow">
+              <input id="agreeTerms" type="checkbox" />
+              <div>
+                I agree to the terms of use.
+              </div>
+            </div>
+
+            <div class="error" id="err-agreeTerms">You must agree to the Terms of Use.</div>
+          </div>
+
+          <div class="workflow-box">
+            <strong style="color:#e2e8f0">Approval or Correction:</strong><br>
+            Only approved accounts can login to the live platform. Pending accounts remain blocked from login.
+          </div>
+
+          <button id="submitBtn" type="submit" class="btn btn-primary" style="margin-top:18px">Submit registration</button>
+
+          <div id="pendingNotice" class="notice pending">
+            Registration submitted. Current status: <strong>Pending review</strong>.
+            Upon approval, you will receive one 15-minute free session.
+            Login remains disabled until account activation.
+          </div>
+        </form>
+      </section>
+
+      <div class="section-grid">
+        <section class="card">
+          <div class="eyebrow">Login</div>
+          <h2>Sign in</h2>
+          <p class="help">
+            Login will remain blocked until account is approved.
+          </p>
+
+          <div class="field">
+            <label for="loginIdentifier">User name or email</label>
+            <input id="loginIdentifier" type="text" placeholder="Enter user name or email" />
+          </div>
+
+          <div class="field">
+            <label for="loginPassword">Password</label>
+            <input id="loginPassword" type="password" placeholder="Enter password" />
+          </div>
+
+          <div class="forgot">
+            <label style="margin:0;font-weight:400;color:#cbd5e1">
+              <input type="checkbox" style="width:16px;height:16px;vertical-align:middle;margin-right:8px" />
+              Remember me
+            </label>
+            <button type="button" class="linkbtn">Forgot password?</button>
+          </div>
+
+          <button id="loginBtn" type="button" class="btn btn-secondary">Log in</button>
+        </section>
+
+
+
+
+      </div>
+    </div>
+  </div>
+
+
+
+  <script src="./assets/js/auth-service.js"></script>
+  <script src="./assets/js/router.js"></script>
+  <script>
+    // Access Control: Enforce Terms of Use
+    if (localStorage.getItem('termsAccepted') !== 'true') {
+      window.location.href = 'terms.html';
+    }
+
+    const statusPill = document.getElementById('statusPill');
+    const loginBtn = document.getElementById('loginBtn');
+    const pendingNotice = document.getElementById('pendingNotice');
+    const regForm = document.getElementById('regForm');
+    const agreeTermsBox = document.getElementById('agreeTerms');
+
+    // Check if terms were accepted on the terms page
+    if (localStorage.getItem('termsAccepted') === 'true') {
+      agreeTermsBox.checked = true;
+    }
+
+    loginBtn.addEventListener('click', async () => {
+      if(!loginBtn.disabled) {
+        const identifier = document.getElementById('loginIdentifier').value.trim();
+        const password = document.getElementById('loginPassword').value;
+
+        if(!identifier || !password) return alert('Please enter both username/email and password.');
+
+        try {
+          await AuthService.login(identifier, password);
+          await handleAfterLogin();
+        } catch (err) {
+          alert(err.message);
+        }
+      }
+    });
+
+    function setStatus(status){
+      statusPill.className = 'pill ' + status;
+      if(status === 'pending') statusPill.textContent = 'Pending';
+      if(status === 'approved') statusPill.textContent = 'Approved';
+      if(status === 'rejected') statusPill.textContent = 'Needs correction';
+    }
+
+    function validEmail(v){
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    }
+    function validPassword(v){
+      return /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(v);
+    }
+    function showError(id, show){
+      document.getElementById(id).style.display = show ? 'block' : 'none';
+    }
+
+    document.getElementById('license').addEventListener('change', function(){
+      const box = document.getElementById('licenseSelected');
+      if(this.files && this.files[0]){
+        box.style.display = 'block';
+        box.textContent = 'Selected file: ' + this.files[0].name;
+      } else {
+        box.style.display = 'none';
+        box.textContent = '';
+      }
+    });
+
+    regForm.addEventListener('submit', function(e){
+      e.preventDefault();
+
+      const firstName = document.getElementById('firstName').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const state = document.getElementById('state').value;
+      const email = document.getElementById('email').value.trim();
+      const license = document.getElementById('license').files[0];
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      const agreeTerms = document.getElementById('agreeTerms').checked;
+
+      const checks = {
+        firstName: !firstName,
+        lastName: !lastName,
+        state: !state,
+        email: !validEmail(email),
+        license: !license,
+        username: !username,
+        password: !validPassword(password),
+        confirmPassword: !(confirmPassword && confirmPassword === password),
+        agreeTerms: !agreeTerms
+      };
+
+      showError('err-firstName', checks.firstName);
+      showError('err-lastName', checks.lastName);
+      showError('err-state', checks.state);
+      showError('err-email', checks.email);
+      showError('err-license', checks.license);
+      showError('err-username', checks.username);
+      showError('err-password', checks.password);
+      showError('err-confirmPassword', checks.confirmPassword);
+      showError('err-agreeTerms', checks.agreeTerms);
+
+      const hasErrors = Object.values(checks).some(Boolean);
+      if(hasErrors){
+        pendingNotice.style.display = 'none';
+        setStatus('draft');
+        return;
+      }
+
+      const signupData = {
+        email: email,
+        password: password,
+        full_name: `${firstName} ${lastName}`,
+        role: 'therapist'
+      };
+
+      const reader = new FileReader();
+      reader.onload = function(event) {
+        signupData.license_data = event.target.result; // Full base64 data
+        
+        AuthService.signup(signupData.email, signupData.password, signupData.full_name, signupData.role, signupData.license_data, state, username)
+          .then(() => {
+            setStatus('pending'); 
+            pendingNotice.innerHTML = 'Registration submitted successfully! Your account is now <strong>Pending review</strong> by our clinical team. You will be notified via email once approved.';
+            pendingNotice.style.display = 'block';
+            alert('Signup successful! Your account is pending clinical review.');
+          })
+          .catch(err => {
+            alert('Signup failed: ' + err.message);
+          });
+      };
+      
+      if (license) {
+        reader.readAsDataURL(license);
+      } else {
+        alert('Please upload your license file.');
+      }
+    });
+
+    setStatus('pending');
+
+    // Auto-redirect if already logged in
+    document.addEventListener('DOMContentLoaded', async () => {
+      const token = AuthService.getToken();
+      if (token) {
+        try {
+           const status = await AuthService.getStatus();
+           if (status && status.user_profile) {
+              await handleAfterLogin();
+           }
+        } catch(e) {
+           AuthService.logout(); // clean up if token invalid
+        }
+      }
+    });
+  </script>
+  </main>
+  <script src="./assets/js/script.js"></script>
+  <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+</body>
+</html>

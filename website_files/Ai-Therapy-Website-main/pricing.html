@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Pricing | Psychotherapy Now</title>
+  <meta name="title" content="Psychotherapy Now - Pricing">
+  <meta name="description" content="Simple and transparent pricing for AI-assisted psychotherapy sessions.">
+
+  <!-- 
+    - google font link
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Rubik:wght@400;500;700&display=swap"
+    rel="stylesheet">
+
+  <!-- 
+    - custom css link
+  -->
+  <link rel="stylesheet" href="./assets/css/style.css">
+
+  <style>
+    /* Fix Header Visibility on Pricing Page */
+    .header {
+      background-color: white !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
+      position: fixed !important;
+    }
+
+    .navbar-link {
+      color: var(--rich-black-fogra-29) !important;
+    }
+
+    .nav-open-btn {
+      color: var(--rich-black-fogra-29) !important;
+    }
+
+    main {
+      margin-top: 100px;
+    }
+  </style>
+
+</head>
+
+<body id="top">
+
+  <!-- 
+    - #PRELOADER
+  -->
+  <div class="preloader" data-preloader>
+    <div class="circle"></div>
+  </div>
+
+  <!-- 
+    - #HEADER
+  -->
+  <header class="header" data-header>
+    <div class="container">
+
+      <a href="index.html" class="logo" style="font-size: larger;">
+        <img src="./assets/images/therapy-now-logo-black.png" alt="Psychotherapy Now Logo" class="site-logo"
+          style="height: 80px; width: auto; display: block;">
+      </a>
+      <nav class="navbar" data-navbar>
+
+        <div class="navbar-top">
+          <a href="index.html" class="logo">
+            <img src="./assets/images/therapy-now-logo-black.png" alt="Psychotherapy Now Logo" class="site-logo"
+              style="height: 80px; width: auto; display: block;">
+          </a>
+          <button class="nav-close-btn" aria-label="close menu" data-nav-toggler>
+            <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+          </button>
+        </div>
+
+        <ul class="navbar-list">
+          <li class="navbar-item">
+            <a href="index.html" class="navbar-link title-md">Home</a>
+          </li>
+          <li class="navbar-item">
+            <a href="aboutus.html" class="navbar-link title-md">About Us</a>
+          </li>
+          <li class="navbar-item">
+            <a href="terms.html" class="navbar-link title-md">Terms of Use / Onboarding</a>
+          </li>
+          <li class="navbar-item">
+            <a href="pricing.html" class="navbar-link title-md active">Pricing</a>
+          </li>
+          <li class="navbar-item auth-buttons-container">
+            <a href="register-login.html" class="navbar-link title-md auth-btn">Register / Login</a>
+          </li>
+        </ul>
+      </nav>
+
+      <button class="nav-open-btn" aria-label="open menu" data-nav-toggler>
+        <ion-icon name="menu-outline"></ion-icon>
+      </button>
+
+      <div class="overlay" data-nav-toggler data-overlay></div>
+    </div>
+  </header>
+
+  <main>
+    <article>
+      <!-- 
+        - #PRICING
+      -->
+      <section class="section pricing" id="pricing" aria-labelledby="pricing-label" style="padding-top: 150px;">
+        <div class="container">
+          <p class="section-subtitle title-lg text-center" id="pricing-label">Pricing</p>
+          <h2 class="section-title headline-md text-center">Simple and transparent pricing for AI-assisted psychotherapy
+            sessions.</h2>
+
+          <div class="pricing-grid">
+            <!-- Card 1: Starter Package -->
+            <div class="pricing-card popular" data-reveal="bottom">
+              <h3 class="headline-sm card-title">Startup</h3>
+              <div class="price">
+                <strong>$24</strong>
+                <span>/ 60 minutes</span>
+              </div>
+
+              <p class="rate-text">
+                Rate $0.40 per minute
+                <!-- <br>Minimum session duration: 15 minutes</p> -->
+              </p>
+              
+              <a href="register-login.html" class="btn has-before" style="margin: 20px auto 0; text-align: center; justify-content: center; width: 100%;">
+                <span class="span title-md" style="color: white;">Request for Demo</span>
+              </a>
+              <p style="margin-top: 15px; font-size: 1.4rem; color: var(--independece); text-align: center; line-height: 1.4;">Buying time only occurs after approval of the account.</p>
+            </div>
+
+            <!-- Card 2: Usage Rules -->
+            <div class="pricing-card rules-card" data-reveal="bottom">
+              <h3 class="headline-sm card-title">Usage Rules</h3>
+              <ul class="pricing-rules">
+                <li>
+                  <ion-icon name="refresh-circle-outline"></ion-icon>
+                  <div>
+                    <strong>Auto-Reload Rule</strong>
+                    <p>When remaining minutes drop below 15, user must purchase another 60 minutes ($24).</p>
+                  </div>
+                </li>
+                <li>
+                  <ion-icon name="speedometer-outline"></ion-icon>
+                  <div>
+                    <strong>Dashboard Display</strong>
+                    <p>A "Minutes Remaining" display box is available in your user account/dashboard.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <!-- 
+    - #FOOTER
+  -->
+  <footer class="footer" style="background-image: url('./assets/images/footer-bg.png')">
+    <div class="container">
+      <div class="footer-layout-top" style="justify-content: center; text-align: center;">
+        <div class="footer-top-left" style="display: flex; flex-direction: column; align-items: center;">
+          <a href="index.html" class="logo">
+            <img src="./assets/images/therapy now logo.png" alt="Psychotherapy Now Logo" class="site-logo footer-logo"
+              style="margin-bottom:10px;">
+          </a>
+          <h2 class="footer-headline" style="text-transform: uppercase;">Psychotherapy Now</h2>
+        </div>
+      </div>
+
+      <div class="footer-layout-middle" style="justify-content: space-between; gap: 30px;">
+        <div class="footer-mid-item" style="flex: 1; min-width: 250px;">
+          <h4 class="info-title">PHONE NUMBER</h4>
+          <div class="info-content" style="margin-bottom: 20px;">
+            <ion-icon name="call"></ion-icon>
+            <a href="tel:9144190088" class="info-link">(914) 419-0088</a>
+          </div>
+        </div>
+
+        <div class="footer-mid-item" style="flex: 1; min-width: 250px;">
+          <h4 class="info-title">EMAIL ADDRESS</h4>
+          <div class="info-content" style="margin-bottom: 20px;">
+            <ion-icon name="mail-open"></ion-icon>
+            <a href="mailto:contact@psychotherapynow.com" class="info-link">contact@psychotherapynow.com</a>
+          </div>
+          <div class="info-content">
+            <ion-icon name="mail-open"></ion-icon>
+            <a href="mailto:info@psychotherapynow.com" class="info-link">info@psychotherapynow.com</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-layout-bottom" style="display: flex; justify-content: center; text-align: center;">
+        <p class="copyright" style="text-align: center; width: 100%;">
+          &copy;2025 Psychotherapy Now. All rights reserved by Jonathan Kogen, PhD
+        </p>
+      </div>
+    </div>
+  </footer>
+
+  <a href="#top" class="back-top-btn" aria-label="back to top" data-back-top-btn>
+    <ion-icon name="chevron-up"></ion-icon>
+  </a>
+
+  <script>
+    const handlePreloader = function () {
+      const preloader = document.querySelector("[data-preloader]");
+      if (preloader) {
+        preloader.classList.add("loaded");
+        document.body.classList.add("loaded");
+      }
+    }
+    window.addEventListener("load", handlePreloader);
+    setTimeout(handlePreloader, 3000); 
+  </script>
+  <script src="./assets/js/script.js"></script>
+  <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+
+</body>
+
+</html>

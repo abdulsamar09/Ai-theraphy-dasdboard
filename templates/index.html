@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Therapy Chat Demo (Pilot)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 12px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 8px;
+        }
+
+        .tag {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .tag.patient {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+
+        .tag.chat {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .tag.therapist {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+
+        .explanation {
+            font-size: 0.9rem;
+            color: #666;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            background: #fafafa;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #444;
+        }
+
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fcfcfc;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 85%;
+        }
+
+        .message.patient {
+            background-color: #e3f2fd;
+            margin-right: auto;
+        }
+
+        .message.chat {
+            background-color: #e8f5e9;
+            margin-left: auto;
+        }
+
+        .message.therapist {
+            background-color: #fff3e0;
+            margin-right: auto;
+            border-left: 3px solid #ff9800;
+        }
+
+        .message .role {
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-right: 8px;
+        }
+
+        .message.patient .role { color: #1565c0; }
+        .message.chat .role { color: #2e7d32; }
+        .message.therapist .role { color: #e65100; }
+
+        .input-area {
+            padding: 16px 20px;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            resize: none;
+            min-height: 50px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #90caf9;
+            box-shadow: 0 0 0 3px rgba(144, 202, 249, 0.2);
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background-color: #1976d2;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #1565c0;
+        }
+
+        .btn-secondary {
+            background-color: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #eee;
+        }
+
+        .btn-success {
+            background-color: #43a047;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background-color: #388e3c;
+        }
+
+        .btn-warning {
+            background-color: #fb8c00;
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background-color: #f57c00;
+        }
+
+        .btn-danger {
+            background-color: #e53935;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background-color: #d32f2f;
+        }
+
+        .btn-voice {
+            background-color: #7b1fa2;
+            color: white;
+        }
+
+        .btn-voice:hover:not(:disabled) {
+            background-color: #6a1b9a;
+        }
+
+        .btn-voice.active {
+            background-color: #e53935;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .metric {
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .metric span {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .therapist-panel {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 16px 20px;
+            background: #fff3e0;
+            border-bottom: 1px solid #ffe0b2;
+        }
+
+        .panel-header h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #e65100;
+        }
+
+        .panel-content {
+            padding: 20px;
+        }
+
+        .whisper-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .whisper-buttons button {
+            font-size: 0.8rem;
+            padding: 8px 14px;
+        }
+
+        .whisper-input {
+            margin-bottom: 16px;
+        }
+
+        .whisper-input label {
+            display: block;
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 6px;
+        }
+
+        .whisper-input-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .whisper-input input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .whisper-input input:focus {
+            outline: none;
+            border-color: #ffcc80;
+            box-shadow: 0 0 0 3px rgba(255, 204, 128, 0.2);
+        }
+
+        .whisper-input-row button {
+            white-space: nowrap;
+        }
+
+        .therapist-message-area {
+            border-top: 1px solid #eee;
+            padding-top: 16px;
+        }
+
+        .voice-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #f3e5f5;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #7b1fa2;
+        }
+
+        .voice-indicator.active {
+            display: flex;
+        }
+
+        .voice-dot {
+            width: 8px;
+            height: 8px;
+            background: #7b1fa2;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .streaming-text {
+            color: #666;
+            font-style: italic;
+        }
+
+        audio {
+            display: none;
+        }
+
+        .demo-btn-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .model-select {
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .model-select:focus {
+            outline: none;
+            border-color: #90caf9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Therapy Chat Demo (Pilot)</h1>
+            <p class="legend">
+                <span class="tag patient">patient</span>
+                <span class="tag chat">chat</span>
+                <span class="tag therapist">therapist</span>
+            </p>
+            <p class="explanation">
+                <strong>patient</strong> types or speaks to <strong>chat</strong> (the AI assistant).
+                A licensed <strong>therapist</strong> supervises, reviews the transcript,
+                and can send hidden "whisper" instructions the patient never sees.
+            </p>
+        </header>
+
+        <div class="main-card">
+            <div class="card-header">
+                <h2>Session Transcript</h2>
+                <div class="voice-indicator" id="voiceIndicator">
+                    <span class="voice-dot"></span>
+                    <span>Listening...</span>
+                </div>
+            </div>
+            <div id="messages"></div>
+            <div class="input-area">
+                <div class="demo-btn-row">
+                    <button class="btn-secondary" id="demoBtn">Start Demo Conversation</button>
+                    <button class="btn-voice" id="voiceToggleBtn">Start Voice Session</button>
+                    <button class="btn-secondary" id="listenBtn" disabled>Listen to Last Reply</button>
+                    <button class="btn-secondary" id="clearChatBtn">Clear Chat</button>
+                    <button class="btn-success" id="newChatBtn">New Chat</button>
+                    <button class="btn-warning" id="patientPauseBtn" disabled>Pause Session</button>
+                    <button class="btn-success" id="patientResumeBtn" disabled>Resume Session</button>
+
+                    <select id="modelSelect" class="model-select">
+                        <option value="gpt-5.1">GPT-5.1</option>
+                        <option value="gpt-4o">GPT-4o</option>
+                        <option value="gpt-4.1">GPT-4.1</option>
+                        <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+                    </select>
+                    <select id="voiceSelect" class="model-select">
+                        <option value="male">Male Voice</option>
+                        <option value="female">Female Voice</option>
+                    </select>
+
+                </div>
+                <div class="input-row">
+                    <textarea id="userInput" placeholder="Type your message here..." rows="2"></textarea>
+                    <button class="btn-primary" id="sendBtn">Send</button>
+                </div>
+                <div class="status-bar">
+                    <div class="metric">TTFT: <span id="ttft">--</span> ms</div>
+                    <div class="metric">Full Response: <span id="fullLatency">--</span> ms</div>
+                    <div class="metric">Status: <span id="sessionStatus">Ready</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="therapist-panel">
+            <div class="panel-header">
+                <h3>Therapist Control Panel</h3>
+            </div>
+            <div class="panel-content">
+                <div class="whisper-buttons">
+                    <button class="btn-secondary" id="therapistWhisperVoiceBtn">
+                        🎙 Whisper (mic)
+                      </button>
+                      <span id="therapistWhisperStatus" class="small-status"></span>
+                    
+                    <button class="btn-warning" id="pauseBtn" disabled>PAUSE</button>
+                    <button class="btn-success" id="resumeBtn" disabled>RESUME</button>
+                    <button class="btn-danger" id="terminateBtn" disabled>TERMINATE</button>
+                    <button class="btn-secondary" id="redirectBtn" disabled>REDIRECT</button>
+                    <button class="btn-secondary" id="toneBtn" disabled>CHANGE TONE</button>
+                    <button class="btn-secondary" id="limitDepthBtn" disabled>LIMIT DEPTH</button>
+                </div>
+                <div class="whisper-input">
+                    <label for="whisperData">Whisper Data (for REDIRECT / CHANGE TONE):</label>
+                    <div class="whisper-input-row">
+                        <input type="text" id="whisperData" placeholder="Enter instruction for AI...">
+                        <button class="btn-primary" id="sendWhisperBtn" disabled>Send Whisper</button>
+                    </div>
+                </div>
+                <div class="therapist-message-area">
+                    <div class="input-row">
+                        <textarea id="therapistInput" placeholder="Send a visible message as therapist..." rows="2"></textarea>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn-warning" id="therapistSendBtn">Send as Therapist</button>
+                            <button class="btn-voice" id="therapistVoiceBtn" disabled>🎤 Therapist Voice</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer"></audio>
+
+    <script>
+        const messages = [];
+        let chatWs = null;
+        let voiceWs = null;
+        let voiceSessionActive = false;
+        let mediaRecorder = null;
+        let audioContext = null;
+        let currentReply = "";
+        let startTime = null;
+        let firstTokenTime = null;
+        let lastChatReply = "";
+
+        const messagesEl = document.getElementById("messages");
+        const userInput = document.getElementById("userInput");
+        const sendBtn = document.getElementById("sendBtn");
+        const demoBtn = document.getElementById("demoBtn");
+        const voiceToggleBtn = document.getElementById("voiceToggleBtn");
+        const listenBtn = document.getElementById("listenBtn");
+        const ttftEl = document.getElementById("ttft");
+        const fullLatencyEl = document.getElementById("fullLatency");
+        const sessionStatusEl = document.getElementById("sessionStatus");
+        const voiceIndicator = document.getElementById("voiceIndicator");
+        const audioPlayer = document.getElementById("audioPlayer");
+
+        
+        const pauseBtn = document.getElementById("pauseBtn");
+        const resumeBtn = document.getElementById("resumeBtn");
+        const terminateBtn = document.getElementById("terminateBtn");
+        const redirectBtn = document.getElementById("redirectBtn");
+        const toneBtn = document.getElementById("toneBtn");
+        const limitDepthBtn = document.getElementById("limitDepthBtn");
+        const sendWhisperBtn = document.getElementById("sendWhisperBtn");
+        const whisperDataInput = document.getElementById("whisperData");
+        const therapistInput = document.getElementById("therapistInput");
+        const therapistSendBtn = document.getElementById("therapistSendBtn");
+        const therapistVoiceBtn = document.getElementById("therapistVoiceBtn");
+        const clearChatBtn = document.getElementById("clearChatBtn");
+        const newChatBtn = document.getElementById("newChatBtn");
+        const patientPauseBtn = document.getElementById("patientPauseBtn");
+        const patientResumeBtn = document.getElementById("patientResumeBtn");
+        const modelSelect = document.getElementById("modelSelect");
+        const therapistWhisperVoiceBtn = document.getElementById("therapistWhisperVoiceBtn");
+        const therapistWhisperStatus = document.getElementById("therapistWhisperStatus");
+        const voiceSelect = document.getElementById("voiceSelect");
+
+
+        let therapistWhisperRecorder = null;
+        let therapistWhisperChunks = [];
+        let therapistWhisperStream = null;
+
+        
+        let therapistVoiceActive = false;
+        let selectedModel = "gpt-5.1";
+        let therapistMediaRecorder = null;
+        let therapistAudioChunks = [];
+        let sessionPaused = false;
+
+
+        const demoScript = [
+            { role: "patient", text: "I've been feeling stressed lately." },
+            { role: "chat", text: "Thank you for sharing that. Can you tell me more about what's been stressful?" },
+            { role: "therapist", text: "(Reviewing patient's message) It sounds like the patient is dealing with work-related stress." },
+            { role: "patient", text: "Mostly my job and not sleeping well." },
+            { role: "chat", text: "That sounds overwhelming. How long has this been affecting your sleep?" }
+        ];
+
+        function renderMessages() {
+            messagesEl.innerHTML = "";
+            messages.forEach(m => {
+                const div = document.createElement("div");
+                div.className = `message ${m.role}`;
+                div.innerHTML = `<span class="role">${m.role}:</span> ${m.text}`;
+                messagesEl.appendChild(div);
+            });
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+
+        function setWhisperButtonsEnabled(enabled) {
+            pauseBtn.disabled = !enabled;
+            resumeBtn.disabled = !enabled;
+            terminateBtn.disabled = !enabled;
+            redirectBtn.disabled = !enabled;
+            toneBtn.disabled = !enabled;
+            limitDepthBtn.disabled = !enabled;
+            sendWhisperBtn.disabled = !enabled;
+            therapistVoiceBtn.disabled = !enabled;
+            patientPauseBtn.disabled = !enabled;
+            // Resume starts disabled; only enabled after patient pauses
+            patientResumeBtn.disabled = true;
+        }
+
+        function sendWhisper(command, data = "") {
+            const ws = voiceWs || chatWs;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: "whisper",
+                    command: command,
+                    data: data
+                }));
+            }
+        }
+
+        // 🔹 Use STT transcript as a whisper (REDIRECT)
+        async function sendVoiceWhisperFromText(text) {
+            const cleaned = text.trim();
+            if (!cleaned) {
+                therapistWhisperStatus.textContent = "No audio captured.";
+                return;
+            }
+
+            // You can change REDIRECT to CHANGE_TONE if you prefer
+            sendWhisper("REDIRECT", cleaned);
+
+            therapistWhisperStatus.textContent = "Whisper sent: " + cleaned;
+            setTimeout(() => {
+                therapistWhisperStatus.textContent = "";
+            }, 5000);
+        }
+
+
+        demoBtn.addEventListener("click", () => {
+            messages.length = 0;
+            demoScript.forEach(m => messages.push({ ...m }));
+            renderMessages();
+        });
+
+        clearChatBtn.addEventListener("click", () => {
+            messages.length = 0;
+            renderMessages();
+            lastChatReply = "";
+            listenBtn.disabled = true;
+            sessionStatusEl.textContent = "Chat cleared";
+        });
+
+        newChatBtn.addEventListener("click", () => {
+            messages.length = 0;
+            renderMessages();
+            lastChatReply = "";
+            listenBtn.disabled = true;
+            
+            if (chatWs && chatWs.readyState === WebSocket.OPEN) {
+                chatWs.close();
+            }
+            if (voiceWs && voiceWs.readyState === WebSocket.OPEN) {
+                voiceWs.close();
+            }
+            if (voiceSessionActive) {
+                stopVoiceSession();
+            }
+            
+            setWhisperButtonsEnabled(false);
+            sessionStatusEl.textContent = "New chat started";
+        });
+
+        modelSelect.addEventListener("change", (e) => {
+            selectedModel = e.target.value;
+            sessionStatusEl.textContent = `Model: ${selectedModel}`;
+        });
+
+        sendBtn.addEventListener("click", sendMessage);
+        userInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            messages.push({ role: "patient", text });
+            renderMessages();
+            userInput.value = "";
+
+            startTime = performance.now();
+            firstTokenTime = null;
+            currentReply = "";
+            ttftEl.textContent = "--";
+            fullLatencyEl.textContent = "--";
+            sessionStatusEl.textContent = "Connecting...";
+
+            if (chatWs) {
+                chatWs.close();
+            }
+
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            chatWs = new WebSocket(`${protocol}//${window.location.host}/ws/chat`);
+
+            chatWs.onopen = () => {
+                sessionStatusEl.textContent = "Connected";
+                setWhisperButtonsEnabled(true);
+                chatWs.send(JSON.stringify({ type: "user_message", text, model: selectedModel }));
+            };
+
+            chatWs.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === "chunk") {
+                    if (firstTokenTime === null) {
+                        firstTokenTime = performance.now();
+                        const ttft = firstTokenTime - startTime;
+                        ttftEl.textContent = ttft.toFixed(1);
+                        sessionStatusEl.textContent = "Streaming...";
+                        messages.push({ role: "chat", text: "", streaming: true });
+                    }
+                    currentReply += data.text;
+                    const streamMsg = messages.find(m => m.role === "chat" && m.streaming);
+                    if (streamMsg) {
+                        streamMsg.text = currentReply;
+                        renderMessages();
+                    }
+                }
+
+                if (data.type === "final") {
+                    lastChatReply = data.text;
+                    const existingStream = messages.find(m => m.role === "chat" && m.streaming);
+                    if (existingStream) {
+                        existingStream.text = data.text;
+                        existingStream.streaming = false;
+                    } else {
+                        messages.push({ role: "chat", text: data.text });
+                    }
+                    renderMessages();
+                    listenBtn.disabled = false;
+                }
+
+                if (data.type === "done") {
+                    const fullLatency = performance.now() - startTime;
+                    fullLatencyEl.textContent = fullLatency.toFixed(1);
+                    sessionStatusEl.textContent = "Complete";
+                }
+
+                if (data.type === "error") {
+                    sessionStatusEl.textContent = "Error";
+                    messages.push({ role: "chat", text: `Error: ${data.text}` });
+                    renderMessages();
+                }
+
+                if (data.type === "status") {
+                    sessionStatusEl.textContent = data.message;
+                }
+
+                if (data.type === "therapist_transcript") {
+                    messages.push({ role: "therapist", text: data.text });
+                    renderMessages();
+                }
+            };
+
+            chatWs.onclose = () => {
+                sessionStatusEl.textContent = "Disconnected";
+                if (!voiceSessionActive) {
+                    setWhisperButtonsEnabled(false);
+                }
+            };
+
+            chatWs.onerror = () => {
+                sessionStatusEl.textContent = "Connection Error";
+            };
+        }
+
+        listenBtn.addEventListener("click", async () => {
+            if (!lastChatReply) return;
+
+            listenBtn.disabled = true;
+            sessionStatusEl.textContent = "Generating audio...";
+
+            try {
+                const response = await fetch("/api/tts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        text: lastChatReply,
+                        voice: voiceSelect.value   // 🔹 use selected voice
+                    })
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    audioPlayer.src = url;
+                    audioPlayer.playbackRate = 1.0;
+                    audioPlayer.play();
+                    sessionStatusEl.textContent = "Playing audio...";
+                    audioPlayer.onended = () => {
+                        sessionStatusEl.textContent = "Ready";
+                        URL.revokeObjectURL(url);
+                    };
+                } else {
+                    sessionStatusEl.textContent = "TTS Error";
+                }
+            } catch (e) {
+                sessionStatusEl.textContent = "TTS Error";
+            }
+
+            listenBtn.disabled = false;
+        });
+
+        voiceToggleBtn.addEventListener("click", async () => {
+            if (!voiceSessionActive) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    startVoiceSession(stream);
+                } catch (e) {
+                    alert("Microphone access is required for voice sessions.");
+                }
+            } else {
+                stopVoiceSession();
+            }
+        });
+
+        function startVoiceSession(stream) {
+            voiceSessionActive = true;
+            voiceToggleBtn.textContent = "End Voice Session";
+            voiceToggleBtn.classList.add("active");
+            voiceIndicator.classList.add("active");
+            sessionStatusEl.textContent = "Voice session starting...";
+            setWhisperButtonsEnabled(true);
+
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            voiceWs = new WebSocket(`${protocol}//${window.location.host}/ws/voice`);
+
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let playbackCursor = 0;
+            const PLAYBACK_RATE = 1.0;
+
+            voiceWs.onopen = () => {
+                sessionStatusEl.textContent = "Voice session active";
+                playbackCursor = audioContext.currentTime + 0.1;
+
+                const audioCtx = new AudioContext({ sampleRate: 24000 });
+                const source = audioCtx.createMediaStreamSource(stream);
+                const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+
+                source.connect(processor);
+                processor.connect(audioCtx.destination);
+
+                processor.onaudioprocess = (e) => {
+                    // If session is not active or paused, don't send audio
+                    if (!voiceSessionActive || sessionPaused || !voiceWs || voiceWs.readyState !== WebSocket.OPEN) {
+                        return;
+                    }
+
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcm16 = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        pcm16[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+                    }
+
+                    const base64 = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
+                    voiceWs.send(JSON.stringify({ type: "audio", data: base64 }));
+                };
+                voiceWs.send(JSON.stringify({
+                    type: "config_voice",
+                    voice: voiceSelect.value   // "male" or "female"
+                }));
+
+                window.voiceProcessor = { processor, source, audioCtx };
+
+            };
+
+            voiceWs.onmessage = async (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === "audio") {
+                    const binaryString = atob(data.data);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+
+                    const pcm16 = new Int16Array(bytes.buffer);
+                    const float32 = new Float32Array(pcm16.length);
+                    for (let i = 0; i < pcm16.length; i++) {
+                        float32[i] = pcm16[i] / 32768;
+                    }
+
+                    if (!audioContext) {
+                        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        playbackCursor = audioContext.currentTime + 0.1;
+                    }
+
+                    const audioBuffer = audioContext.createBuffer(1, float32.length, 24000);
+                    audioBuffer.getChannelData(0).set(float32);
+
+                    const source = audioContext.createBufferSource();
+                    source.buffer = audioBuffer;
+                    source.playbackRate.value = PLAYBACK_RATE;
+                    source.connect(audioContext.destination);
+                    
+                    const now = audioContext.currentTime;
+                    if (playbackCursor < now) {
+                        playbackCursor = now + 0.05;
+                    }
+                    source.start(playbackCursor);
+                    playbackCursor += (audioBuffer.duration / PLAYBACK_RATE);
+                }
+
+                if (data.type === "user_transcript") {
+                    messages.push({ role: "patient", text: data.text });
+                    renderMessages();
+                }
+
+                if (data.type === "assistant_transcript") {
+                    const lastMsg = messages[messages.length - 1];
+                    if (lastMsg && lastMsg.role === "chat" && lastMsg.streaming) {
+                        lastMsg.text += data.text;
+                    } else {
+                        messages.push({ role: "chat", text: data.text, streaming: true });
+                    }
+                    renderMessages();
+                }
+
+                if (data.type === "status") {
+                    sessionStatusEl.textContent = data.message;
+
+                    if (data.message.toLowerCase().includes("paused")) {
+                        sessionPaused = true;
+                        if (audioContext && audioContext.state === "running") {
+                            audioContext.suspend().catch(() => {});
+                        }
+                        patientPauseBtn.disabled = true;
+                        patientResumeBtn.disabled = false;
+                    }
+
+                    if (data.message.toLowerCase().includes("resumed")) {
+                        sessionPaused = false;
+                        if (audioContext && audioContext.state === "suspended") {
+                            audioContext.resume().catch(() => {});
+                        }
+                        patientPauseBtn.disabled = false;
+                        patientResumeBtn.disabled = true;
+                    }
+                }
+
+
+                if (data.type === "therapist_transcript") {
+                    messages.push({ role: "therapist", text: data.text });
+                    renderMessages();
+                }
+
+                if (data.type === "error") {
+                    sessionStatusEl.textContent = `Error: ${data.text}`;
+                }
+            };
+
+            voiceWs.onclose = () => {
+                stopVoiceSession();
+            };
+
+            voiceWs.onerror = () => {
+                sessionStatusEl.textContent = "Voice connection error";
+                stopVoiceSession();
+            };
+        }
+
+        function stopVoiceSession() {
+            voiceSessionActive = false;
+            voiceToggleBtn.textContent = "Start Voice Session";
+            voiceToggleBtn.classList.remove("active");
+            voiceIndicator.classList.remove("active");
+            sessionStatusEl.textContent = "Voice session ended";
+
+            if (window.voiceProcessor) {
+                window.voiceProcessor.processor.disconnect();
+                window.voiceProcessor.source.disconnect();
+                window.voiceProcessor.audioCtx.close();
+                window.voiceProcessor = null;
+            }
+
+            if (voiceWs) {
+                voiceWs.close();
+                voiceWs = null;
+            }
+
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+
+            if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {
+                setWhisperButtonsEnabled(false);
+            }
+        }
+
+        
+        pauseBtn.addEventListener("click", () => sendWhisper("PAUSE"));
+        resumeBtn.addEventListener("click", () => sendWhisper("RESUME"));
+        terminateBtn.addEventListener("click", () => {
+            sendWhisper("TERMINATE");
+            audioPlayer.pause();
+            if (voiceSessionActive) stopVoiceSession();
+        });
+        // 🔹 Therapist Whisper (voice) toggle
+        therapistWhisperVoiceBtn.addEventListener("click", async () => {
+            // If already recording -> stop and send to STT
+            if (therapistWhisperRecorder && therapistWhisperRecorder.state === "recording") {
+                therapistWhisperRecorder.stop();
+                therapistWhisperVoiceBtn.textContent = "🎙 Whisper (mic)";
+                therapistWhisperStatus.textContent = "Processing whisper...";
+                return;
+            }
+
+            // Start a new whisper recording
+            try {
+                therapistWhisperStatus.textContent = "";
+                therapistWhisperChunks = [];
+
+                therapistWhisperStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                therapistWhisperRecorder = new MediaRecorder(therapistWhisperStream);
+
+                therapistWhisperRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        therapistWhisperChunks.push(event.data);
+                    }
+                };
+
+                therapistWhisperRecorder.onstop = async () => {
+                    if (therapistWhisperStream) {
+                        therapistWhisperStream.getTracks().forEach(t => t.stop());
+                    }
+
+                    const blob = new Blob(therapistWhisperChunks, { type: "audio/webm" });
+                    const formData = new FormData();
+                    formData.append("file", blob, "therapist_whisper.webm");
+
+                    try {
+                        const res = await fetch("/api/stt", {
+                            method: "POST",
+                            body: formData
+                        });
+
+                        if (!res.ok) {
+                            therapistWhisperStatus.textContent = "Whisper STT failed.";
+                            return;
+                        }
+
+                        const data = await res.json();
+                        const text = data.text || "";
+                        await sendVoiceWhisperFromText(text);
+                    } catch (err) {
+                        console.error(err);
+                        therapistWhisperStatus.textContent = "Error sending whisper.";
+                    }
+                };
+
+                therapistWhisperRecorder.start();
+                therapistWhisperVoiceBtn.textContent = "⏹ Stop Whisper";
+                therapistWhisperStatus.textContent = "Listening (therapist whisper)...";
+
+                // Safety auto-stop after 10s
+                setTimeout(() => {
+                    if (therapistWhisperRecorder && therapistWhisperRecorder.state === "recording") {
+                        therapistWhisperRecorder.stop();
+                        therapistWhisperVoiceBtn.textContent = "🎙 Whisper (mic)";
+                    }
+                }, 10000);
+
+            } catch (err) {
+                console.error(err);
+                therapistWhisperStatus.textContent = "Mic access denied or unavailable.";
+            }
+        });
+
+        // 🔹 Patient Pause/Resume controls
+        // 🔹 Patient Pause/Resume controls
+        patientPauseBtn.addEventListener("click", async () => {
+            sendWhisper("PAUSE");
+            sessionStatusEl.textContent = "Session paused";
+            sessionPaused = true;
+            // If AI is speaking, freeze audio playback
+                if (audioContext && audioContext.state === "running") {
+                    try {
+                        await audioContext.suspend();
+                    } catch (e) {
+                        console.warn("Failed to suspend audioContext:", e);
+                    }
+                }
+
+                patientPauseBtn.disabled = true;
+                patientResumeBtn.disabled = false;
+            });
+         
+        patientResumeBtn.addEventListener("click", async () => {
+            sendWhisper("RESUME");
+            sessionStatusEl.textContent = "Session resumed";
+            sessionPaused = false;
+
+            // Resume audio playback from where it was paused
+            if (audioContext && audioContext.state === "suspended") {
+                try {
+                    await audioContext.resume();
+                } catch (e) {
+                    console.warn("Failed to resume audioContext:", e);
+                }
+            }
+
+            patientPauseBtn.disabled = false;
+            patientResumeBtn.disabled = true;
+        });
+
+
+        redirectBtn.addEventListener("click", () => sendWhisper("REDIRECT", whisperDataInput.value));
+        toneBtn.addEventListener("click", () => sendWhisper("CHANGE_TONE", whisperDataInput.value));
+        limitDepthBtn.addEventListener("click", () => sendWhisper("LIMIT_DEPTH"));
+        
+        sendWhisperBtn.addEventListener("click", () => {
+            const data = whisperDataInput.value.trim();
+            if (!data) return;
+            sendWhisper("REDIRECT", data);
+            whisperDataInput.value = "";
+        });
+
+        therapistSendBtn.addEventListener("click", () => {
+            const text = therapistInput.value.trim();
+            if (!text) return;
+
+            messages.push({ role: "therapist", text });
+            renderMessages();
+            therapistInput.value = "";
+
+            const ws = voiceWs || chatWs;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "therapist_message", text }));
+            }
+        });
+        
+        therapistVoiceBtn.addEventListener("click", async () => {
+            if (!therapistVoiceActive) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    therapistVoiceActive = true;
+                    therapistVoiceBtn.textContent = "⏹️ Stop Recording";
+                    therapistVoiceBtn.classList.add("active");
+                    therapistAudioChunks = [];
+                    
+                    therapistMediaRecorder = new MediaRecorder(stream);
+                    therapistMediaRecorder.ondataavailable = (e) => {
+                        therapistAudioChunks.push(e.data);
+                    };
+                    therapistMediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(therapistAudioChunks, { type: "audio/webm" });
+                        const reader = new FileReader();
+                        reader.onload = async () => {
+                            const base64 = reader.result.split(',')[1];
+                            const ws = voiceWs || chatWs;
+                            if (ws && ws.readyState === WebSocket.OPEN) {
+                                ws.send(JSON.stringify({
+                                    type: "therapist_voice",
+                                    data: base64
+                                }));
+                            }
+                        };
+                        reader.readAsDataURL(audioBlob);
+                        stream.getTracks().forEach(t => t.stop());
+                    };
+                    therapistMediaRecorder.start();
+                } catch (e) {
+                    alert("Microphone access required for therapist voice.");
+                }
+            } else {
+                therapistVoiceActive = false;
+                therapistVoiceBtn.textContent = "🎤 Therapist Voice";
+                therapistVoiceBtn.classList.remove("active");
+                if (therapistMediaRecorder && therapistMediaRecorder.state !== "inactive") {
+                    therapistMediaRecorder.stop();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

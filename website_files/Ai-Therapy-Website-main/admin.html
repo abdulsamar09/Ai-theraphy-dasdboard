@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard | AI Therapy Platform</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+      --bg: #020617;
+      --card-bg: rgba(15, 23, 42, 0.7);
+      --card-border: rgba(51, 65, 85, 0.6);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #22d3ee;
+      --primary-hover: #06b6d4;
+      --success: #10b981;
+      --success-bg: rgba(16, 185, 129, 0.15);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.15);
+      --warning: #f59e0b;
+      --warning-bg: rgba(245, 158, 11, 0.15);
+      --header-h: 70px;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(34, 211, 238, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.08) 0px, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+
+    header {
+      height: var(--header-h);
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      padding: 0 40px;
+      background: rgba(2, 6, 23, 0.8);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    header h1 span { color: var(--primary); }
+
+    .container {
+      max-width: 1400px;
+      margin: 40px auto;
+      padding: 0 40px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .stat-card h3 {
+      margin: 0;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .stat-card .value {
+      font-size: 36px;
+      font-weight: 700;
+      margin-top: 8px;
+      color: var(--text-main);
+    }
+
+    .table-container {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .table-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .table-header h2 { margin: 0; font-size: 18px; font-weight: 600; }
+
+    table { width: 100%; border-collapse: collapse; }
+    
+    th, td {
+      padding: 18px 24px;
+      text-align: left;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+    }
+
+    th {
+      background: rgba(2, 6, 23, 0.4);
+      color: var(--text-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    tr:hover td { background: rgba(30, 41, 59, 0.4); }
+    tr:last-child td { border-bottom: none; }
+
+    .user-info { display: flex; flex-direction: column; gap: 4px; }
+    .user-name { font-weight: 600; font-size: 15px; color: #fff; }
+    .user-meta { font-size: 12px; color: var(--text-muted); }
+    
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge.approved { background: var(--success-bg); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge.pending { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge.rejected { background: var(--danger-bg); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+    .license-thumb {
+      width: 70px; height: 46px;
+      border-radius: 6px;
+      object-fit: cover;
+      border: 1px solid var(--card-border);
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .license-thumb:hover { transform: scale(1.1); border-color: var(--primary); }
+
+    .actions { display: flex; gap: 8px; }
+    
+    button {
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    button:hover { background: rgba(51, 65, 85, 0.6); }
+
+    button.btn-primary { background: var(--primary); color: #020617; border: none; }
+    button.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    
+    button.btn-approve { color: var(--success); border-color: var(--success); }
+    button.btn-approve:hover { background: var(--success-bg); }
+    
+    button.btn-reject { color: var(--danger); border-color: var(--danger); }
+    button.btn-reject:hover { background: var(--danger-bg); }
+    
+    button.btn-edit { color: var(--primary); border-color: var(--primary); }
+    button.btn-edit:hover { background: rgba(34, 211, 238, 0.1); }
+
+    /* Modal Framework */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .modal-overlay.active { display: flex; opacity: 1; }
+
+    .modal {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      transform: translateY(20px);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-overlay.active .modal { transform: translateY(0); }
+
+    .modal-hdr {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-hdr h3 { margin: 0; font-size: 18px; font-weight: 600; }
+    .btn-close { border: none !important; padding: 4px !important; color: var(--text-muted) !important; font-size: 24px; line-height: 1; border-radius: 50% !important; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05) !important; }
+    .btn-close:hover { background: rgba(255,255,255,0.1) !important; color: #fff !important; }
+
+    .modal-body { padding: 24px; }
+    
+    /* Edit Form specific */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+    .form-group input, .form-group select {
+      width: 100%;
+      background: #020617;
+      border: 1px solid var(--card-border);
+      padding: 12px 14px;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--primary); }
+
+    .modal-footer {
+      padding: 20px 24px;
+      border-top: 1px solid var(--card-border);
+      display: flex; justify-content: flex-end; gap: 12px;
+      background: rgba(2, 6, 23, 0.3);
+    }
+
+    /* Image Modal specific */
+    .img-modal { max-width: 90vw; max-height: 90vh; background: transparent; border: none; box-shadow: none; overflow: visible;}
+    .img-modal img { max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 0 40px rgba(0,0,0,0.8); }
+    .img-modal .btn-close { position: absolute; top: -40px; right: 0; background: rgba(0,0,0,0.5) !important; color: white !important; }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        background: rgba(2, 6, 23, 0.4);
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid var(--card-border);
+        margin-bottom: 20px;
+    }
+    .info-item { display: flex; flex-direction: column; gap: 4px; }
+    .info-item span.lbl { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 0.05em;}
+    .info-item span.val { font-size: 14px; color: #fff; }
+
+    /* Skeleton Loader */
+    .skeleton { background: linear-gradient(90deg, rgba(30, 41, 59, 0.4) 25%, rgba(51, 65, 85, 0.4) 50%, rgba(30, 41, 59, 0.4) 75%); background-size: 200% 100%; animation: loading 1.5s infinite; border-radius: 4px; }
+    @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> AI Therapy <span>Admin</span></h1>
+    <div style="margin-left: auto; display: flex; gap: 16px; align-items: center;">
+        <span style="font-size: 13px; color: var(--text-muted);" id="lastRefreshTime">Refreshing...</span>
+        <button onclick="loadData()">Refresh Data</button>
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <div class="stats-row">
+      <div class="stat-card">
+        <h3>Total Registered</h3>
+        <div class="value" id="statTotal">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>Pending Approvals</h3>
+        <div class="value" style="color: var(--warning);" id="statPending">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>Active Clinicians</h3>
+        <div class="value" style="color: var(--success);" id="statApproved">-</div>
+      </div>
+    </div>
+
+    <div class="table-container">
+      <div class="table-header">
+        <h2>Clinician Applications & Users</h2>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>User Info</th>
+            <th>Role / State</th>
+            <th>License Docs</th>
+            <th>Status</th>
+            <th style="padding-left: 30px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <!-- Populated via JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Edit User Modal -->
+  <div class="modal-overlay" id="editModalOverlay">
+    <div class="modal">
+      <div class="modal-hdr">
+        <h3>Edit User Profile</h3>
+        <button class="btn-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="editModalBody">
+        <div class="info-grid" id="editInfoGrid">
+            <!-- Read-only stats -->
+        </div>
+        <form id="editForm">
+          <input type="hidden" id="editUserId">
+          <div class="form-group">
+            <label>Full Name</label>
+            <input type="text" id="editFullName" required>
+          </div>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" id="editUsername">
+          </div>
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="editEmail" required>
+          </div>
+          <div class="form-group">
+            <label>State of Licensure</label>
+            <input type="text" id="editState">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeEditModal()">Cancel</button>
+        <button class="btn-primary" onclick="submitEdit()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image View Modal -->
+  <div class="modal-overlay" id="imgModalOverlay" onclick="if(event.target === this) closeImgModal()">
+    <div class="modal img-modal">
+        <button class="btn-close" onclick="closeImgModal()">&times;</button>
+        <img id="fullImg">
+    </div>
+  </div>
+
+  <script>
+    let globalUsers = [];
+
+    async function loadData() {
+      const tbody = document.getElementById('tableBody');
+      if (globalUsers.length === 0) {
+          tbody.innerHTML = Array(4).fill(0).map(() => `
+            <tr>
+              <td><div class="skeleton" style="height:40px;width:150px"></div></td>
+              <td><div class="skeleton" style="height:20px;width:100px"></div></td>
+              <td><div class="skeleton" style="height:46px;width:70px"></div></td>
+              <td><div class="skeleton" style="height:24px;width:80px;border-radius:12px"></div></td>
+              <td><div class="skeleton" style="height:35px;width:120px;border-radius:8px"></div></td>
+            </tr>
+          `).join('');
+      }
+
+      try {
+        const res = await fetch('/api/admin/users');
+        const users = await res.json();
+        globalUsers = users;
+        renderTable(users);
+        updateStats(users);
+
+        const now = new Date();
+        document.getElementById('lastRefreshTime').textContent = 'Last synced: ' + now.toLocaleTimeString();
+      } catch (err) {
+        console.error("Error loading users:", err);
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:40px; color:var(--danger)">Failed to load data. Backend might be unreachable.</td></tr>`;
+      }
+    }
+
+    function renderTable(users) {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+      
+      if (users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color: var(--text-muted)">No users found in the system.</td></tr>';
+          return;
+      }
+
+      users.forEach((u) => {
+        // Skip purely admin logic from UI to prevent modifying root admins if desired, but we'll show them.
+        
+        let licenseHtml = '<span style="color:var(--text-muted);font-size:12px;">No License</span>';
+        if (u.license && u.license !== 'N/A') {
+            if (u.license.startsWith('data:image')) {
+                licenseHtml = `<img src="${u.license}" class="license-thumb" onclick="openImgModal('${u.license}')" title="View Full License Element">`;
+            } else if (u.license.includes('pdf')) {
+                licenseHtml = `<a href="${u.license}" download="License_${u.id}.pdf" style="color:var(--primary); font-size:12px; text-decoration:none;"><svg style="vertical-align:middle;margin-right:4px;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><polyline points="9 15 12 18 15 15"></polyline></svg> PDF Link</a>`;
+            } else {
+                licenseHtml = `<span style="font-size: 11px; max-width:80px; display:inline-block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color: var(--text-muted);" title="Document Attachment">Document Attached</span>`;
+            }
+        }
+
+        const roleColor = u.role === 'admin' ? '#fb7185' : u.role === 'patient' ? '#818cf8' : '#38bdf8';
+        const st = u.state_of_licensure && u.state_of_licensure !== 'N/A' ? u.state_of_licensure : 'N/A';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+              <div class="user-info">
+                  <span class="user-name">${u.full_name || 'Unnamed User'}</span>
+                  <span class="user-meta">${u.email}</span>
+                  ${u.username ? `<span class="user-meta" style="font-size:10px; color:#64748b;">@${u.username}</span>` : ''}
+              </div>
+          </td>
+          <td>
+              <div class="user-info">
+                  <span style="color: ${roleColor}; font-weight: 600; font-size:13px; text-transform: capitalize;">${u.role}</span>
+                  ${u.role === 'therapist' ? `<span class="user-meta">State: ${st}</span>` : ''}
+              </div>
+          </td>
+          <td>${licenseHtml}</td>
+          <td>
+              <span class="badge ${u.status}">${u.status}</span>
+          </td>
+          <td>
+            <div class="actions">
+              ${u.role === 'therapist' && u.status !== 'approved' ? `<button class="btn-approve" onclick="updateStatus(${u.id}, 'approved')" title="Approve Clinician"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></button>` : ''}
+              ${u.role === 'therapist' && u.status === 'approved' ? `<button class="btn-reject" onclick="updateStatus(${u.id}, 'pending')" title="Revoke Approval"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg></button>` : ''}
+              ${u.role === 'therapist' && u.status !== 'rejected' ? `<button class="" onclick="updateStatus(${u.id}, 'rejected')" title="Reject"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` : ''}
+              
+              <button class="btn-edit" onclick="openEditModal(${u.id})">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                Edit
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateStats(users) {
+        document.getElementById('statTotal').textContent = users.length;
+        const therapists = users.filter(u => u.role === 'therapist');
+        document.getElementById('statPending').textContent = therapists.filter(u => u.status === 'pending').length;
+        document.getElementById('statApproved').textContent = therapists.filter(u => u.status === 'approved').length;
+    }
+
+    async function updateStatus(id, newStatus) {
+      if (!confirm(`Are you sure you want to change clinician ID #${id} status to ${newStatus.toUpperCase()}?`)) return;
+      try {
+        const res = await fetch(`/api/admin/update-status/${id}`, { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) { loadData(); } else { alert('Operation failed'); }
+      } catch (err) { alert('Network error'); }
+    }
+
+    // --- Edit Modal Logic ---
+    function openEditModal(userId) {
+        const u = globalUsers.find(x => x.id === userId);
+        if (!u) return;
+
+        document.getElementById('editUserId').value = u.id;
+        document.getElementById('editFullName').value = u.full_name || '';
+        document.getElementById('editEmail').value = u.email || '';
+        document.getElementById('editUsername').value = u.username && u.username !== 'N/A' ? u.username : '';
+        document.getElementById('editState').value = u.state_of_licensure && u.state_of_licensure !== 'N/A' ? u.state_of_licensure : '';
+
+        // Fill Readonly info grid
+        document.getElementById('editInfoGrid').innerHTML = `
+            <div class="info-item"><span class="lbl">User ID</span><span class="val">#${u.id}</span></div>
+            <div class="info-item"><span class="lbl">Role</span><span class="val" style="text-transform:capitalize">${u.role}</span></div>
+            <div class="info-item"><span class="lbl">System Status</span><span class="val"><span class="badge ${u.status}">${u.status}</span></span></div>
+            <div class="info-item"><span class="lbl">Registered At</span><span class="val" style="font-size:12px;">${u.created_at ? new Date(u.created_at).toLocaleString() : 'Legacy'}</span></div>
+        `;
+
+        document.getElementById('editModalOverlay').classList.add('active');
+    }
+
+    function closeEditModal() { document.getElementById('editModalOverlay').classList.remove('active'); }
+
+    async function submitEdit() {
+        const id = document.getElementById('editUserId').value;
+        const payload = {
+            full_name: document.getElementById('editFullName').value,
+            email: document.getElementById('editEmail').value,
+            username: document.getElementById('editUsername').value,
+            state_of_licensure: document.getElementById('editState').value
+        };
+
+        try {
+            const btn = document.querySelector('#editModalOverlay .btn-primary');
+            btn.textContent = 'Saving...'; btn.disabled = true;
+
+            const res = await fetch(`/api/admin/update-user/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                closeEditModal();
+                loadData();
+            } else {
+                const err = await res.json();
+                alert('Update failed: ' + (err.detail || 'Unknown error'));
+            }
+        } catch (err) {
+            alert('Network error while saving');
+        } finally {
+            const btn = document.querySelector('#editModalOverlay .btn-primary');
+            btn.textContent = 'Save Changes'; btn.disabled = false;
+        }
+    }
+
+    // --- Image Modal Logic ---
+    function openImgModal(src) {
+        document.getElementById('fullImg').src = src;
+        document.getElementById('imgModalOverlay').classList.add('active');
+    }
+
+    function closeImgModal() {
+        document.getElementById('imgModalOverlay').classList.remove('active');
+        setTimeout(() => document.getElementById('fullImg').src = '', 300); // clear after transition
+    }
+
+    // Auto refresh every 30 seconds
+    setInterval(loadData, 30000);
+    loadData();
+
+    // Close Modals on ESC
+    document.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape') { closeEditModal(); closeImgModal(); }
+    });
+  </script>
+</body>
+</html>
