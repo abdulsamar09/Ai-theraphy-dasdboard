@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Terms of Use | Psychotherapy Now</title>
+  <meta name="title" content="Psychotherapy Now - Terms of Use">
+  <meta name="description"
+    content="Psychotherapy Now provides AI-supported psychotherapy sessions for licensed psychotherapists.">
+
+  <link rel="shortcut icon" href="#" type="image/x-icon">
+
+  <link rel="preconnect" href="https://font.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Rubik:wght@400;500;700&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="./assets/css/style.css">
+
+  <style>
+    :root {
+      --bg-terms: #0b1220;
+      --panel: #121a2b;
+      --panel-2: #182238;
+      --text: #e9eefb;
+      --muted: #a9b5d1;
+      --line: #2a3653;
+      --accent: #d4af37;
+      --accent-2: #f3d879;
+      --ok: #1d8f5a;
+      --shadow: 0 18px 42px rgba(0, 0, 0, .35);
+      --radius: 18px;
+    }
+
+    .terms-page-content {
+      font-family: Georgia, "Times New Roman", serif;
+      background: radial-gradient(circle at top, rgba(212, 175, 55, .10), transparent 30%),
+        linear-gradient(180deg, #0b1220 0%, #0d1424 100%);
+      color: var(--text);
+      line-height: 1.62;
+      padding-block: 150px 80px;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    .terms-hero {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+      padding: 34px 28px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      color: var(--accent-2);
+      font: 600 12px/1.2 Arial, Helvetica, sans-serif;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    h1.terms-title {
+      margin: 0 0 8px 0;
+      font-size: 42px;
+      line-height: 1.05;
+      letter-spacing: .01em;
+      color: white;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font: 400 18px/1.5 Arial, Helvetica, sans-serif;
+      max-width: 760px;
+    }
+
+    .meta {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .pill {
+      font: 600 13px/1 Arial, Helvetica, sans-serif;
+      color: #f3f6ff;
+      background: rgba(212, 175, 55, .12);
+      border: 1px solid rgba(212, 175, 55, .28);
+      padding: 10px 12px;
+      border-radius: 999px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 270px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .toc,
+    .content,
+    .accept-box {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .toc {
+      position: sticky;
+      top: 100px;
+      padding: 18px;
+    }
+
+    .toc h2,
+    .content h2 {
+      margin-top: 0;
+      font-size: 20px;
+    }
+
+    .toc ol {
+      margin: 0;
+      padding-left: 20px;
+      font: 400 14px/1.6 Arial, Helvetica, sans-serif;
+    }
+
+    .toc a {
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    .toc a:hover {
+      color: var(--accent-2)
+    }
+
+    .content {
+      padding: 28px;
+    }
+
+    .section-terms {
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .section-terms:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    h2.terms-h2 {
+      color: var(--accent-2);
+      margin-bottom: 10px;
+    }
+
+    h3.terms-h3 {
+      margin: 18px 0 8px;
+      font-size: 18px;
+      color: #fff;
+    }
+
+    .accept-box {
+      margin-top: 22px;
+      padding: 22px;
+      background: linear-gradient(180deg, rgba(212, 175, 55, .08), rgba(255, 255, 255, .02));
+    }
+
+    .accept-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font: 400 15px/1.5 Arial, Helvetica, sans-serif;
+      color: var(--text);
+      margin: 12px 0;
+    }
+
+    input[type="checkbox"] {
+      margin-top: 3px;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--ok);
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .btn-terms {
+      border: none;
+      border-radius: 12px;
+      padding: 13px 18px;
+      font: 600 15px/1 Arial, Helvetica, sans-serif;
+      cursor: pointer;
+      transition: transform .15s ease, opacity .15s ease;
+    }
+
+    .btn-terms:hover {
+      transform: translateY(-1px)
+    }
+
+    .primary-terms {
+      background: var(--accent);
+      color: #111827;
+    }
+
+    .secondary-terms {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .primary-terms:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 8, 16, .72);
+      backdrop-filter: blur(4px);
+      z-index: 999;
+      padding: 20px;
+    }
+
+    .modal {
+      max-width: 620px;
+      margin: 8vh auto 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 20px 22px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-body {
+      padding: 20px 22px;
+      font: 400 15px/1.6 Arial, Helvetica, sans-serif;
+      color: var(--text);
+    }
+
+    .modal-footer {
+      padding: 16px 22px 22px;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      border-top: 1px solid var(--line);
+    }
+
+    @media (max-width: 860px) {
+      .grid {
+        grid-template-columns: 1fr
+      }
+
+      .toc {
+        position: relative;
+        top: auto
+      }
+
+      h1.terms-title {
+        font-size: 34px
+      }
+
+      .content {
+        padding: 22px
+      }
+    }
+  </style>
+</head>
+
+<body id="top">
+
+  <div class="preloader" data-preloader>
+    <div class="circle"></div>
+  </div>
+
+  <header class="header" data-header>
+    <div class="container">
+      <a href="index.html" class="logo" style="font-size: larger;">
+        <img src="./assets/images/therapy%20now%20logo.png" alt="Psychotherapy Now Logo" class="site-logo"
+          style="height: 80px; width: auto; display: block;">
+      </a>
+      <nav class="navbar" data-navbar>
+        <div class="navbar-top">
+          <a href="index.html" class="logo">
+            <img src="./assets/images/therapy%20now%20logo.png" alt="Psychotherapy Now Logo" class="site-logo"
+              style="height: 80px; width: auto; display: block;">
+          </a>
+          <button class="nav-close-btn" aria-label="close menu" data-nav-toggler>
+            <ion-icon name="close-outline" aria-hidden="true"></ion-icon>
+          </button>
+        </div>
+        <ul class="navbar-list">
+          <li class="navbar-item">
+            <a href="index.html" class="navbar-link title-md">Home</a>
+          </li>
+
+          <li class="navbar-item">
+            <a href="aboutus.html" class="navbar-link title-md">About Us</a>
+          </li>
+
+          <li class="navbar-item">
+            <a href="terms.html" class="navbar-link title-md active">Terms of Use / Onboarding</a>
+          </li>
+
+          <li class="navbar-item">
+            <a href="pricing.html" class="navbar-link title-md">Pricing</a>
+          </li>
+
+          <li class="navbar-item auth-buttons-container">
+            <a href="register-login.html" class="navbar-link title-md auth-btn">Register / Login</a>
+          </li>
+        </ul>
+      </nav>
+      <button class="nav-open-btn" aria-label="open menu" data-nav-toggler>
+        <ion-icon name="menu-outline"></ion-icon>
+      </button>
+      <div class="overlay" data-nav-toggler data-overlay></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="terms-page-content">
+      <div class="wrap">
+        <section class="terms-hero">
+          <div id="requiredAlert" style="display:none; background: rgba(251, 113, 133, 0.15); border: 1px solid rgba(251, 113, 133, 0.35); color: #fecdd3; padding: 16px 20px; border-radius: 14px; margin-bottom: 22px; font-weight: bold; font-family: Arial, Helvetica, sans-serif; font-size: 15px; display: flex; align-items: center; gap: 10px;">
+             <ion-icon name="warning" style="font-size: 24px; color: #fb7185;"></ion-icon>
+             Please carefully review and accept the Terms of Use before proceeding to Registration and Login.
+          </div>
+          <div class="eyebrow">Psychotherapy Now</div>
+          <h1 class="terms-title">Terms of Use and Professional Use Agreement</h1>
+
+          <div class="meta">
+            <div class="pill">Licensed clinicians only</div>
+            <div class="pill">Self-use treated as simulation</div>
+            <!-- 
+            <div class="pill">New York governing law</div>
+          -->
+          </div>
+        </section>
+
+        <div class="grid">
+          <aside class="toc">
+            <h2>Contents</h2>
+            <ol>
+              <li><a href="#s1">Introduction</a></li>
+              <li><a href="#s2">Nature of the Platform</a></li>
+              <li><a href="#s3">Eligibility</a></li>
+              <li><a href="#s4">Permitted Uses</a></li>
+              <li><a href="#s5">Self-Reflective Use and Role-Play</a></li>
+              <li><a href="#s6">No Clinical Services</a></li>
+              <li><a href="#s7">Use With Patients</a></li>
+              <li><a href="#s8">Data and Privacy</a></li>
+              <li><a href="#s9">Professional Responsibility</a></li>
+              <li><a href="#s10">Limitation of Liability</a></li>
+              <li><a href="#s11">Indemnification</a></li>
+              <li><a href="#s12">No Warranties</a></li>
+              <li><a href="#s13">Incorporation of Additional Policies</a></li>
+              <li><a href="#s14">Termination</a></li>
+              <li><a href="#s15">Governing Law</a></li>
+              <li><a href="#s16">Acceptance</a></li>
+            </ol>
+          </aside>
+
+          <div class="content">
+            <div class="section-terms" id="s1">
+              <h2 class="terms-h2">1. Introduction</h2>
+              <p>Welcome to Psychotherapy Now (“Platform”). These Terms of Use govern your access to and use of the
+                Platform. By accessing or using the Platform, you agree to be bound by these Terms. This Platform is
+                intended exclusively for use by licensed mental health professionals.</p>
+            </div>
+
+            <div class="section-terms" id="s2">
+              <h2 class="terms-h2">2. Nature of the Platform</h2>
+              <p>Psychotherapy Now is an AI-assisted interface designed to support licensed clinicians in professional
+                training, reflective exercises, and supervised clinical interactions.</p>
+              <p>The Platform is a tool. It is not a provider of psychotherapy or medical care and does not deliver
+                treatment, diagnosis, or clinical services. All outputs generated by the Platform are automated,
+                informational and exploratory.</p>
+            </div>
+
+            <div class="section-terms" id="s3">
+              <h2 class="terms-h2">3. Eligibility</h2>
+              <p>You may use the Platform only if you are a licensed mental health professional, provide accurate
+                licensure, and agree to these Terms. Use by unlicensed individuals or
+                independent patient use is strictly prohibited.</p>
+            </div>
+
+            <div class="section-terms" id="s4">
+              <h2 class="terms-h2">4. Permitted Uses</h2>
+              <h3 class="terms-h3">4.1 Supervised Patient Use</h3>
+              <p>You may use the Platform in connection with a patient only when you are present in real time and
+                maintain full control of the interaction.</p>
+              <h3 class="terms-h3">4.2 Professional Training</h3>
+              <p>You may use the Platform for skill development, technique exploration, and simulation of clinical
+                scenarios.</p>
+
+            </div>
+
+            <div class="section-terms" id="s5">
+              <h2 class="terms-h2">5. Training and Learning Experience</h2>
+              <p>The therapist may use the Platform as a training or learning experience. The therapist has the option of role playing a patient or using the patient role for personal growth. The therapist has the option to direct AI to respond with a specific psychotherapy orientation.</p>
+            </div>
+
+            <div class="section-terms" id="s6">
+              <h2 class="terms-h2">6. No Clinical Services Provided</h2>
+              <p>The Platform does not diagnose, treat, assess risk, or provide clinical recommendations. All outputs
+                are generated by an artificial system and do not constitute professional advice.</p>
+            </div>
+
+            <div class="section-terms" id="s7">
+              <h2 class="terms-h2">7. Use With Patients</h2>
+              <p>If you use the Platform in connection with a patient, you must be present at all times, you must
+                maintain full control of the interaction, and you assume full clinical and legal responsibility. The
+                Platform functions only as an adjunct tool.</p>
+            </div>
+
+            <div class="section-terms" id="s8">
+              <h2 class="terms-h2">8. Data and Privacy</h2>
+              <p>There is no storage of session transcripts, no PHI is asked for or recorded. The platform is HIPAA compliant. You are responsible for ensuring compliance with state laws and professional standards.</p>
+            </div>
+
+            <div class="section-terms" id="s9">
+              <h2 class="terms-h2">9. Professional Responsibility</h2>
+              <p>You acknowledge and agree that you remain the responsible licensed professional, retain full authority
+                over all decisions, and that the Platform does not replace your judgment.</p>
+            </div>
+
+            <div class="section-terms" id="s10">
+              <h2 class="terms-h2">10. Limitation of Liability</h2>
+              <p>To the fullest extent permitted by law, the Platform and its operators shall not be liable for
+                decisions you make, reliance on AI-generated content, or outcomes resulting from use. All responsibility
+                remains with you.</p>
+            </div>
+
+            <div class="section-terms" id="s11">
+              <h2 class="terms-h2">11. Indemnification</h2>
+              <p>You agree to indemnify and hold harmless the Platform and its operators from any claims arising out of
+                your use of the Platform, your clinical activities, or your interpretation of outputs.</p>
+            </div>
+
+            <div class="section-terms" id="s12">
+              <h2 class="terms-h2">12. No Warranties</h2>
+              <p>The Platform is provided “as is” and “as available.” No warranties are made regarding accuracy,
+                reliability, or clinical usefulness.</p>
+            </div>
+
+            <div class="section-terms" id="s13">
+              <h2 class="terms-h2">13. Incorporation of Additional Policies</h2>
+              <p>You acknowledge that additional documents are incorporated into these Terms, including the
+                Psychotherapy Now Legal and Compliance Binder, Therapist Agreement, and operational and safety policies.
+                These documents are binding and form part of these Terms.</p>
+            </div>
+
+            <div class="section-terms" id="s14">
+              <h2 class="terms-h2">14. Termination</h2>
+              <p>Access may be suspended or terminated if these Terms are violated, licensure is invalid or
+                unverifiable, or misuse of the Platform is detected.</p>
+            </div>
+
+            <div class="section-terms" id="s15">
+              <h2 class="terms-h2">15. Governing Law</h2>
+              <p>These Terms shall be governed by the laws of the State of New York, without regard to conflict of law
+                principles.</p>
+            </div>
+
+            <div class="section-terms" id="s16">
+              <h2 class="terms-h2">16. Acceptance</h2>
+              <p>By using the Platform, you confirm that you have read and understood these Terms, agree to be bound by
+                them, and accept full professional responsibility.</p>
+            </div>
+
+            <section class="accept-box">
+              <div class="accept-row">
+                <input type="checkbox" id="cb1">
+                <label for="cb1">I am a licensed mental health professional and agree that this Platform is for
+                  clinician use only.</label>
+              </div>
+              <div class="accept-row">
+                <input type="checkbox" id="cb2">
+                <label for="cb2">I understand that self-use on the Platform is defined as self-directed reflective
+                  simulation and not therapy, treatment, or clinical care.</label>
+              </div>
+              <div class="accept-row">
+                <input type="checkbox" id="cb3">
+                <label for="cb3">I have read and agree to these Terms of Use and Professional Use Agreement.</label>
+              </div>
+              <div class="actions">
+                <button class="btn-terms primary-terms" id="acceptBtn" disabled>Accept Terms</button>
+                <button class="btn-terms secondary-terms" id="printBtn">Print / Save PDF</button>
+              </div>
+              <div class="note" style="margin-top: 10px; color: var(--muted); font-size: 13px;">Acceptance recorded
+                locally for verification.</div>
+              <div class="note success" id="acceptedMsg" style="display:none; color: #b5f3d1; font-weight: 600;">
+                Acceptance recorded locally!</div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer" style="background-image: url('./assets/images/footer-bg.png')">
+    <div class="container">
+
+      <!-- Top Section -->
+      <div class="footer-layout-top" style="justify-content: center; text-align: center;">
+        <div class="footer-top-left" style="display: flex; flex-direction: column; align-items: center;">
+          <a href="index.html" class="logo">
+            <img src="./assets/images/therapy now logo.png" alt="Psychotherapy Now Logo" class="site-logo footer-logo"
+              style="margin-bottom:10px;">
+          </a>
+          <h2 class="footer-headline" style="text-transform: uppercase;">Psychotherapy Now</h2>
+        </div>
+      </div>
+
+      <!-- Middle Section -->
+      <div class="footer-layout-middle" style="justify-content: space-between; gap: 30px;">
+
+        <div class="footer-mid-item" style="flex: 1; min-width: 250px;">
+          <h4 class="info-title">PHONE NUMBER</h4>
+          <div class="info-content" style="margin-bottom: 20px;">
+            <ion-icon name="call"></ion-icon>
+            <a href="tel:9144190088" class="info-link">(914) 419-0088</a>
+          </div>
+
+        </div>
+
+        <div class="footer-mid-item" style="flex: 1; min-width: 250px;">
+          <h4 class="info-title">EMAIL ADDRESS</h4>
+          <div class="info-content" style="margin-bottom: 20px;">
+            <ion-icon name="mail-open"></ion-icon>
+            <a href="mailto:contact@psychotherapynow.com" class="info-link">contact@psychotherapynow.com</a>
+          </div>
+          <div class="info-content">
+            <ion-icon name="mail-open"></ion-icon>
+            <a href="mailto:info@psychotherapynow.com" class="info-link">info@psychotherapynow.com</a>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Bottom Section -->
+      <div class="footer-layout-bottom" style="display: flex; justify-content: center; text-align: center;">
+        <p class="copyright" style="text-align: center; width: 100%;">
+          &copy;2025 Psychotherapy Now. All rights reserved by Jonathan Kogen, PhD
+        </p>
+      </div>
+
+    </div>
+  </footer>
+
+  <a href="#top" class="back-top-btn" aria-label="back to top" data-back-top-btn>
+    <ion-icon name="chevron-up"></ion-icon>
+  </a>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-header">
+        <h2 id="modalTitle" style="margin:0; color:var(--accent-2);">Confirm Acceptance</h2>
+      </div>
+      <div class="modal-body">
+        <p>You are confirming that you are a licensed clinician and that you agree to these Terms of Use.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-terms secondary-terms" id="cancelBtn">Cancel</button>
+        <button class="btn-terms primary-terms" id="confirmBtn">Confirm Acceptance</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const handlePreloader = function () {
+      const preloader = document.querySelector("[data-preloader]");
+      if (preloader) {
+        preloader.classList.add("loaded");
+        document.body.classList.add("loaded");
+      }
+    }
+    window.addEventListener("load", handlePreloader);
+    setTimeout(handlePreloader, 3000); 
+  </script>
+  <script src="./assets/js/script.js"></script>
+  <script type="module" src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@5.5.2/dist/ionicons/ionicons.js"></script>
+
+  <script>
+    if (window.location.search.includes('msg=required')) {
+      const alertBox = document.getElementById('requiredAlert');
+      if (alertBox) {
+        alertBox.style.display = 'flex';
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+    const checks = [...document.querySelectorAll('input[type="checkbox"]')];
+    const acceptBtn = document.getElementById('acceptBtn');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+    const cancelBtn = document.getElementById('cancelBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const acceptedMsg = document.getElementById('acceptedMsg');
+    const printBtn = document.getElementById('printBtn');
+
+    function refreshButton() {
+      acceptBtn.disabled = !checks.every(c => c.checked);
+    }
+
+    checks.forEach(c => c.addEventListener('change', refreshButton));
+
+    acceptBtn.addEventListener('click', () => {
+      modalBackdrop.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      modalBackdrop.style.display = 'none';
+      document.body.style.overflow = '';
+    });
+
+    confirmBtn.addEventListener('click', () => {
+      modalBackdrop.style.display = 'none';
+      document.body.style.overflow = '';
+      acceptedMsg.style.display = 'block';
+      localStorage.setItem('termsAccepted', 'true');
+      setTimeout(() => {
+        window.location.href = 'register-login.html';
+      }, 1500);
+    });
+
+    printBtn.addEventListener('click', () => window.print());
+
+    window.addEventListener('click', (e) => {
+      if (e.target === modalBackdrop) {
+        modalBackdrop.style.display = 'none';
+        document.body.style.overflow = '';
+      }
+    });
+
+    refreshButton();
+  </script>
+
+</body>
+
+</html>
