@@ -1,0 +1,28 @@
+# PAYPAL/VENMO INTEGRATION: REAL-TIME (PRODUCTION) REQUIREMENTS
+
+Abhi current implementation testing mode me hai. Jab aap is site ko live (production) me laenge, toh aapko ye cheezein replace aur implement karni hongi:
+
+1. LIVE PAYPAL CLIENT ID (Frontend)
+File: frontend-dashboard/index.html
+Location: Line ~22 (PayPal script tag)
+Action: 'client-id=test' ko hata kar apna actual live PayPal Client ID daalna hai jo PayPal Developer Dashboard (Live mode) se milega.
+
+2. BACKEND PAYMENT VERIFICATION (Security)
+Current State: Frontend jab payment success karta hai, toh wo backend (main.py) ke `/api/account/purchase-minutes` endpoint ko trigger karta hai, aur backend blindly minutes add kar deta hai. Ye security risk hai (koi bhi fake API call karke minutes badha sakta hai).
+Action Required: 
+- `script.js` me `onApprove` ke andar `data.orderID` ko backend par bhejna hoga.
+- `main.py` me `purchase_minutes` endpoint par PayPal ki API call karke us `orderID` ko verify karna hoga ki payment sach me receive hui hai ya nahi (PayPal REST API ka use karke).
+- Verification successful hone ke baad hi Database (Wallet) me minutes add karne honge.
+
+3. WEBHOOKS (Optional but recommended)
+Agar user payment karke tab close kar deta hai (before frontend updates backend), toh minutes miss ho sakte hain. Iske liye PayPal Webhooks backend me set up karne honge jo automatically backend ko inform karenge ki payment successful ho gayi hai.
+
+4. ACTUAL ENVIRONMENT VARIABLES (.env)
+File: .env
+Action: 
+- OPENAI_API_KEY (Jo abhi missing hai)
+- PAYPAL_CLIENT_SECRET (Backend verification ke liye)
+- LIVE SMTP credentials (Emails ke liye)
+
+5. DOMAIN/HTTPS
+PayPal smart buttons ko smoothly kaam karne ke liye (specially Venmo ke liye) production domain me SSL (HTTPS) hona zaroori hai.

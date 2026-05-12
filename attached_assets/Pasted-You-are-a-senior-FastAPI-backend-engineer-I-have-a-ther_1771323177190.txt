@@ -1,0 +1,206 @@
+You are a senior FastAPI backend engineer.
+
+I have a therapy AI backend in main.py that already includes:
+
+FastAPI app
+
+/api/tts
+
+/api/stt
+
+/ws/chat
+
+/ws/voice
+
+Whisper command handling
+
+OpenAI integration
+
+My frontend (dashboard + website) is fully completed, so I must modify backend to match frontend requirements without redesigning frontend.
+
+You must update main.py with the following changes carefully and cleanly:
+
+1️⃣ Fix Runtime Error
+
+Add:
+
+BILLING_RECORDS: list[dict] = []
+
+
+near top of file (before record_billing() is used).
+
+2️⃣ Add CORS Middleware
+
+Add:
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+3️⃣ Serve Two Frontends
+
+I have two folders:
+
+frontend-dashboard/
+
+frontend-website/
+
+Mount both:
+
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+app.mount("/dashboard", StaticFiles(directory="frontend-dashboard", html=True), name="dashboard")
+app.mount("/site", StaticFiles(directory="frontend-website", html=True), name="site")
+
+@app.get("/")
+def landing():
+    return FileResponse("frontend-website/index.html")
+
+@app.get("/dashboard-app")
+def dashboard_app():
+    return FileResponse("frontend-dashboard/index.html")
+
+4️⃣ Modify /api/tts to Support Voice Speed + Pitch
+
+Extend existing endpoint to accept:
+
+{
+  "text": "...",
+  "voice": "male",
+  "speed": 1.0,
+  "pitch": "normal"
+}
+
+
+Implementation requirements:
+
+Clamp speed between 0.7 and 1.3
+
+Default speed = 1.0
+
+If pitch provided, inject into calming prefix
+
+Use OpenAI speed parameter in .audio.speech.create
+
+Example modification:
+
+speed = float(data.get("speed", 1.0))
+speed = max(0.7, min(1.3, speed))
+pitch = data.get("pitch", "normal")
+
+calm_text = f"Please speak calmly. Pitch: {pitch}. " + text
+
+5️⃣ Fix /ws/chat to Stream Real Deltas
+
+Currently it sends fake chunk "...".
+
+Replace with:
+
+assistant_full = ""
+for chunk in stream:
+    if state.terminated:
+        break
+    delta = chunk.choices[0].delta.content or ""
+    if delta:
+        assistant_full += delta
+        await websocket.send_json({"type": "chunk", "text": delta})
+
+
+Then still send:
+
+await websocket.send_json({"type": "final", "text": filtered_text})
+await websocket.send_json({"type": "done"})
+
+6️⃣ Add Session Configuration Support
+
+Extend SessionState with:
+
+mode: str = "normal"
+ai_role: str = "therapist"
+age: Optional[str] = None
+sex: Optional[str] = None
+notes: Optional[str] = None
+
+
+Handle new WebSocket message type:
+
+{
+  "type": "session_config",
+  "mode": "roleplay",
+  "ai_role": "patient",
+  "age": "32",
+  "sex": "Male",
+  "notes": "Trauma history..."
+}
+
+
+Update session state fields accordingly.
+
+Inject session context into system prompt inside build_messages():
+
+session_context = []
+if state.age: session_context.append(f"Age: {state.age}")
+if state.sex: session_context.append(f"Sex: {state.sex}")
+if state.notes: session_context.append(f"Notes: {state.notes}")
+session_context.append(f"Mode: {state.mode}")
+session_context.append(f"AI Role: {state.ai_role}")
+
+messages.append({
+    "role": "system",
+    "content": "Session context: " + " | ".join(session_context)
+})
+
+7️⃣ Add Basic Auth + License Stub Endpoints (Pilot Only)
+
+Add simple in-memory structures:
+
+USERS = {}
+LICENSES = {}
+
+
+Implement:
+
+POST /auth/signup
+
+Accept form-data
+
+Save user with status = "PENDING"
+
+Save license filename
+
+POST /auth/login
+
+Validate user exists
+
+Return status
+
+GET /auth/status?email=
+
+Return approval status
+
+Do NOT implement production security, just pilot-level storage.
+
+8️⃣ Do NOT Remove Existing Logic
+
+Preserve:
+
+Whisper commands
+
+Safety gating
+
+Voice session streaming
+
+Billing recording
+
+Only extend functionality cleanly.
+
+Return full updated main.py.
+
+Ensure it runs without errors.
