@@ -104,40 +104,6 @@
 
         </ul>
 
-        <ul class="social-list">
-
-          <li>
-            <a href="javascript:void(0)" class="social-link">
-              <ion-icon name="logo-twitter"></ion-icon>
-            </a>
-          </li>
-
-          <li>
-            <a href="javascript:void(0)" class="social-link">
-              <ion-icon name="logo-facebook"></ion-icon>
-            </a>
-          </li>
-
-          <li>
-            <a href="javascript:void(0)" class="social-link">
-              <ion-icon name="logo-pinterest"></ion-icon>
-            </a>
-          </li>
-
-          <li>
-            <a href="javascript:void(0)" class="social-link">
-              <ion-icon name="logo-instagram"></ion-icon>
-            </a>
-          </li>
-
-          <li>
-            <a href="javascript:void(0)" class="social-link">
-              <ion-icon name="logo-youtube"></ion-icon>
-            </a>
-          </li>
-
-        </ul>
-
       </nav>
 
       <div class="header-action-wrapper" style="display: flex; align-items: center; gap: 15px;">
@@ -165,12 +131,12 @@
         - #HERO
       -->
 
-      <section class="section hero" style="background-image: url('./assets/images/hero-bg.png')" aria-label="home">
+      <section class="section hero" style="background-image: url('./assets/images/hero-bg.png'); padding-bottom: 20px; padding-top: 110px; min-height: 400px;" aria-label="home">
         <div class="container">
 
           <div class="hero-content">
-            <P class="heropara">
-              A Therapist Support Framework for Licensed Psychotherapists, designed to increase awareness and behavioral
+            <P class="heropara" style="margin-bottom: 20px;">
+              A Therapist Support Framework <b style="color: white; font-weight: 700;">For Licensed Clinicians</b>, designed to increase awareness and behavioral
               change through therapist-supervised AI-Assisted Interactions.
             </P>
 
@@ -202,15 +168,14 @@
             <style>
               .hero-square-img {
                 width: 100%;
-                max-width: 450px;
-                aspect-ratio: 1 / 1 !important;
-                object-fit: cover !important;
-                border-radius: 20px;
-                display: block;
+                max-width: 350px;
+                height: auto;
+                object-fit: contain;
+                border-radius: 24px;
                 margin: 0 auto;
               }
             </style>
-            <img src="./assets/images/Hero shot main.png" width="500" height="500" loading="eager" alt="hero banner"
+            <img src="./assets/images/main hero image.png" loading="eager" alt="hero banner"
               class="hero-square-img">
           </figure>
 
@@ -518,22 +483,20 @@
     - #FOOTER
   -->
 
-      <footer class="footer" style="background-image: url('./assets/images/footer-bg.png')">
+      <footer class="footer" style="background-image: url('./assets/images/footer-bg.png'); padding-block: 20px;">
         <div class="container">
 
           <!-- Top Section -->
           <div class="footer-layout-top" style="justify-content: center; text-align: center;">
-            <div class="footer-top-left" style="display: flex; flex-direction: column; align-items: center;">
-              <h2 class="footer-headline" style="text-transform: uppercase;">Psychotherapy Now</h2>
-            </div>
           </div>
 
           <!-- Middle Section -->
-          <div class="footer-layout-middle" style="justify-content: space-between; gap: 30px;">
+          <div class="footer-layout-middle" style="justify-content: center; gap: 60px; display: flex; flex-wrap: wrap;">
 
             <div class="footer-mid-item" style="flex: 1; min-width: 250px;">
-              <h4 class="info-title">PHONE NUMBER</h4>
-              <div class="info-content" style="margin-bottom: 20px;">
+              <h3 style="color: white; font-size: 2rem; margin-bottom: 15px; font-weight: 700; text-transform: uppercase;">Psychotherapy Now</h3>
+              <h4 class="info-title" style="font-size: 1.4rem; margin-bottom: 5px;">PHONE NUMBER</h4>
+              <div class="info-content" style="margin-bottom: 10px;">
                 <ion-icon name="call"></ion-icon>
                 <a href="tel:9144190088" class="info-link">(914) 419-0088</a>
               </div>
@@ -541,8 +504,8 @@
             </div>
 
             <div class="footer-mid-item" style="flex: 1; min-width: 250px;">
-              <h4 class="info-title">EMAIL ADDRESS</h4>
-              <div class="info-content" style="margin-bottom: 20px;">
+              <h4 class="info-title" style="font-size: 1.4rem; margin-bottom: 5px;">EMAIL ADDRESS</h4>
+              <div class="info-content" style="margin-bottom: 10px;">
                 <ion-icon name="mail-open"></ion-icon>
                 <a href="mailto:contact@psychotherapynow.com" class="info-link">contact@psychotherapynow.com</a>
               </div>

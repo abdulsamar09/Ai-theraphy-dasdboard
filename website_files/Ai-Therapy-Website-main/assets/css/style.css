@@ -534,16 +534,16 @@ body.nav-active {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-top: 60px;
+  margin-top: 20px;
   width: 100%;
 }
 
 .hero-banner img,
 .hero-square-img {
   width: 100%;
-  max-width: 450px;
-  aspect-ratio: 1 / 1 !important;
-  object-fit: cover !important;
+  max-width: 350px;
+  height: auto;
+  object-fit: contain;
   border-radius: 20px;
   display: block;
   margin: 0 auto;
@@ -551,9 +551,9 @@ body.nav-active {
 
 .hero {
   background-color: var(--midnight-green);
-  padding-top: 100px;
-  padding-bottom: 20px;
-  min-height: calc(100vh - 120px);
+  padding-top: 20px;
+  padding-bottom: 0px;
+  min-height: calc(100vh - 100px);
   display: flex;
   align-items: center;
   background-repeat: no-repeat;
@@ -578,8 +578,13 @@ body.nav-active {
   font-size: 50px !important;
   color: white;
   margin-block: 20px 30px;
-  font-size: clamp(2.8rem, 4vw + 1rem, 4.5rem);
+  font-size: clamp(2.4rem, 3.5vw + 1rem, 4rem);
   /* slightly reduced for better fit */
+}
+
+.heropara {
+  margin-block-end: 15px;
+  color: var(--white);
 }
 
 .hero-card {
