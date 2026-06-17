@@ -442,6 +442,7 @@ class SessionState:
 
         self.transcript: List[Dict] = []
         self.last_sync: float = time.time()
+        self.therapist_name: str = "Dr. Alex Thompson"
 
 
 # --- GLOBAL REGISTRIES ---
@@ -950,6 +951,18 @@ async def dashboard_bootstrap(room_id: Optional[str] = None, authorization: str 
             db_user.fixed_room_id = f"ROOM-{uuid.uuid4().hex[:4].upper()}"
             db.commit()
 
+        # Cache in AUTH_USERS for WebSocket lookup
+        if db_user.email not in AUTH_USERS:
+            gender = db_user.gender or "Pending"
+            age = db_user.age or "Pending"
+            AUTH_USERS[db_user.email] = UserProfile(
+                email=db_user.email,
+                role=db_user.role,
+                name=db_user.full_name,
+                age=str(age),
+                gender=str(gender)
+            )
+
         user_profile = {
             "full_name": db_user.full_name, 
             "role": db_user.role, 
@@ -987,7 +1000,9 @@ async def dashboard_bootstrap(room_id: Optional[str] = None, authorization: str 
             mins = float(wallet.minutes_remaining) if wallet else 20.0
         used = wallet.free_session_used if wallet else False
         sub_active = wallet.subscription_active if wallet else False
-    elif email in AUTH_USERS:
+    elif email in AUTH_USERS or (email and email.startswith("guest_")):
+        if email not in AUTH_USERS:
+            AUTH_USERS[email] = UserProfile(email=email, role="patient", name="Guest Patient")
         user = AUTH_USERS[email]
         user_profile = {
             "full_name": user.name, 
@@ -1203,7 +1218,57 @@ async def text_to_speech(req: Request):
         return StreamingResponse(response.iter_bytes(), media_type="audio/mpeg")
     except Exception as e:
         print(f"TTS Error: {e}")
-        return HTTPException(status_code=500, detail=str(e))
+async def generate_ai_response(session: SessionState, sid: str):
+    prompt_messages = [{"role": "system", "content": get_system_prompt(session)}]
+    for t in session.transcript[-10:]:
+        m_role = "user" if t["role"] == "patient" else "assistant"
+        prompt_messages.append({"role": m_role, "content": t["text"]})
+
+    session.therapist_whisper = ""
+    session.therapist_text_instruction = ""
+
+    try:
+        stream = await client.chat.completions.create(model="gpt-4o-mini", messages=prompt_messages, stream=True)
+        full_text = ""
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content or ""
+            if delta:
+                full_text += delta
+                # Send chunk to patient
+                if session.patient_ws:
+                    try:
+                        await session.patient_ws.send_json({"type": "chunk", "text": delta})
+                    except:
+                        pass
+                # Send monitor_ai_reply to therapists
+                for ws in list(session.therapist_wss):
+                    try:
+                        await ws.send_json({"type": "monitor_ai_reply", "text": delta, "session_id": sid})
+                    except:
+                        pass
+
+        session.transcript.append({"role": "ai", "text": full_text})
+        # Send final to everyone
+        await broadcast_to_session(session, {
+            "type": "final",
+            "text": full_text,
+            "voice_gender": session.voice_gender,
+            "tempo": session.tempo,
+            "pitch": session.pitch,
+            "speed": session.speed,
+        })
+    except Exception as e:
+        print(f"LLM Error: {e}")
+        if session.patient_ws:
+            try:
+                await session.patient_ws.send_json({"type": "error", "message": f"AI Error: {str(e)}"})
+            except:
+                pass
+        for ws in list(session.therapist_wss):
+            try:
+                await ws.send_json({"type": "error", "message": f"AI Error: {str(e)}"})
+            except:
+                pass
 
 # --- WEBSOCKET HANDLER ---
 
@@ -1253,8 +1318,32 @@ async def websocket_chat(websocket: WebSocket):
                 try:
                     payload = jwt.decode(data.get("token", ""), SECRET_KEY, algorithms=[ALGORITHM])
                     email = payload.get("user_id")
+                    
+                    # Auto-register guest if not in AUTH_USERS
+                    if email and email.startswith("guest_") and email not in AUTH_USERS:
+                        AUTH_USERS[email] = UserProfile(email=email, role="patient", name="Guest Patient")
+                        
                     user = AUTH_USERS.get(email)
-                    if not user: raise Exception("No user")
+                    
+                    # If not in AUTH_USERS (e.g. after server restart), check the database
+                    if not user:
+                        db = next(get_db())
+                        db_user = db.query(User).filter(User.email == email).first()
+                        if db_user:
+                            gender = db_user.gender or "Pending"
+                            age = db_user.age or "Pending"
+                            user_p = UserProfile(
+                                email=db_user.email,
+                                role=db_user.role,
+                                name=db_user.full_name,
+                                age=str(age),
+                                gender=str(gender)
+                            )
+                            AUTH_USERS[db_user.email] = user_p
+                            user = user_p
+                            
+                    if not user:
+                        raise Exception("No user")
                     await websocket.send_json({"type": "status", "message": f"Welcome {user.name}", "user": user.model_dump()})
                 except Exception as e:
                     await websocket.close(code=4401)
@@ -1277,6 +1366,7 @@ async def websocket_chat(websocket: WebSocket):
                         print(f"Clinical Room {sid} detected (Owner: {room_owner.email}). Syncing therapist minutes.")
                         session.user_id = room_owner.id
                         session.email = room_owner.email
+                        session.therapist_name = room_owner.full_name
                         wallet = db.query(Wallet).filter(Wallet.user_id == room_owner.id).first()
                     else:
                         # Individual Mode: Use patient's own balance
@@ -1302,6 +1392,28 @@ async def websocket_chat(websocket: WebSocket):
                     "session_id": sid,
                     "minutes_remaining": round(session.minutes_remaining, 1)
                 })
+                # Send initial session sync state to the patient
+                await websocket.send_json({
+                    "type": "session_sync",
+                    "session_id": sid,
+                    "patient_name": session.patient_name,
+                    "patient_age": session.patient_age,
+                    "patient_sex": session.patient_sex,
+                    "approach": session.approach,
+                    "mode": session.mode,
+                    "session_mode": getattr(session, "session_mode", "supervised_client"),
+                    "transcript": session.transcript,
+                    "session_active": session.session_active,
+                    "patient_online": True,
+                    "elapsed_seconds": int(time.time() - session.start_time) if (session.session_active and session.start_time) else 0,
+                    "voice_gender": session.voice_gender,
+                    "tempo": session.tempo,
+                    "pitch": session.pitch,
+                    "speed": session.speed,
+                    "pitch_shift": session.pitch_shift,
+                    "minutes_remaining": round(session.minutes_remaining, 1),
+                    "therapist_name": session.therapist_name
+                })
                 continue
 
             # 3. THERAPIST JOIN
@@ -1322,11 +1434,14 @@ async def websocket_chat(websocket: WebSocket):
                 session = ACTIVE_SESSIONS[sid]
                 session.therapist_wss.add(websocket)
                 session.therapist_emails.add(user.email)
+                if user and hasattr(user, "name") and user.name:
+                    session.therapist_name = user.name
                 
                 # SYNC: When a clinician joins, the session uses THEIR wallet balance
                 db = next(get_db())
                 db_user = db.query(User).filter(User.email == user.email).first()
                 if db_user:
+                    session.therapist_name = db_user.full_name
                     wallet = db.query(Wallet).filter(Wallet.user_id == db_user.id).first()
                     if wallet:
                         # Transfer billing ownership to this therapist
@@ -1345,7 +1460,8 @@ async def websocket_chat(websocket: WebSocket):
                         })
 
                 current_sid = sid
-                await websocket.send_json({
+                # Broadcast session_sync to everyone so patient dashboard receives the updated therapist name and configuration
+                await broadcast_to_session(session, {
                     "type": "session_sync",
                     "session_id": sid,
                     "patient_name": session.patient_name,
@@ -1368,6 +1484,7 @@ async def websocket_chat(websocket: WebSocket):
                     "pitch_shift": session.pitch_shift,
                     "minutes_remaining": round(session.minutes_remaining, 1),
                     "special_instructions": session.instruction_to_ai,
+                    "therapist_name": session.therapist_name
                 })
                 await websocket.send_json({"type": "status", "message": "Joined session silently", "session_id": sid})
                 continue
@@ -1423,6 +1540,7 @@ async def websocket_chat(websocket: WebSocket):
                     "pitch_shift": session.pitch_shift,
                     "minutes_remaining": round(session.minutes_remaining, 1),
                     "special_instructions": session.instruction_to_ai,
+                    "therapist_name": session.therapist_name
                 }, exclude=websocket)
                 
                 await websocket.send_json({"type": "status", "message": "Config Updated"})
@@ -1495,46 +1613,15 @@ async def websocket_chat(websocket: WebSocket):
                 # Broadcast patient text to therapists (fan-out)
                 await broadcast_to_session(session, {"type": "monitor_patient_text", "text": text, "session_id": sid}, exclude=websocket)
 
-                # (Billing now handled by background task session_credit_deductor)
-
-                # Build AI prompt
-                prompt_messages = [{"role": "system", "content": get_system_prompt(session)}]
-                for t in session.transcript[-10:]:
-                    m_role = "user" if t["role"] == "patient" else "assistant"
-                    prompt_messages.append({"role": m_role, "content": t["text"]})
-
-                # Consume both instruction channels after building the prompt
-                session.therapist_whisper = ""
-                session.therapist_text_instruction = ""
-
-                try:
-                    stream = await client.chat.completions.create(model="gpt-4o-mini", messages=prompt_messages, stream=True)
-                    full_text = ""
-                    async for chunk in stream:
-                        delta = chunk.choices[0].delta.content or ""
-                        if delta:
-                            full_text += delta
-                            await websocket.send_json({"type": "chunk", "text": delta})
-                            await broadcast_to_session(session, {"type": "monitor_ai_reply", "text": delta, "session_id": sid}, exclude=websocket)
-
-                    session.transcript.append({"role": "ai", "text": full_text})
-                    # Send final with voice config so everyone (patient & therapist) plays TTS correctly
-                    await broadcast_to_session(session, {
-                        "type": "final",
-                        "text": full_text,
-                        "voice_gender": session.voice_gender,
-                        "tempo": session.tempo,
-                        "pitch": session.pitch,
-                        "speed": session.speed,
-                    })
-                except Exception as e:
-                    print(f"LLM Error: {e}")
-                    await websocket.send_json({"type": "error", "message": f"AI Error: {str(e)}"})
+                # Generate AI response
+                await generate_ai_response(session, sid)
 
             # 6. WHISPER MIC (spoken, private)
             elif msg_type == "whisper" and user and user.role == "therapist":
-                session.therapist_whisper = data.get("text", "")
-                await websocket.send_json({"type": "status", "message": "Whisper Recorded"})
+                text = data.get("text", "")
+                if text:
+                    session.therapist_whisper = text
+                    await websocket.send_json({"type": "status", "message": "Whisper Recorded"})
 
             # 7. THERAPIST TEXT INSTRUCTION (typed, private directive)
             elif msg_type == "therapist_instruction" and user and user.role == "therapist":

@@ -487,7 +487,7 @@ class TherapyDashboard {
     }
 
     pushVoiceConfig() {
-        if (!this.sessionId) return;
+        if (!this.sessionId || this.user.role !== "therapist") return;
         this.wsSend({
             type: "session_config",
             voice_gender: this.voiceState.gender,
@@ -504,6 +504,10 @@ class TherapyDashboard {
         const isTherapist = this.user.role === "therapist";
         const clinicianView = document.getElementById("clinicianView");
         const patientView = document.getElementById("patientView");
+        const debugBtn = document.getElementById("debugAddMinutesBtn");
+        if (debugBtn) {
+            debugBtn.style.display = isTherapist ? "inline-block" : "none";
+        }
 
         if (isTherapist) {
             document.body.classList.add("role-therapist");
@@ -558,7 +562,7 @@ class TherapyDashboard {
             });
             if (this.user.role === "patient") {
                 this.wsSend({ type: "create_session", forced_id: this.sessionId });
-            } else if (this.user.role === "therapist" && this.isSupervising && this.sessionId) {
+            } else if (this.user.role === "therapist" && this.sessionId) {
                 this.wsSend({ type: "join_supervision", target_session_id: this.sessionId });
             }
         };
@@ -644,10 +648,31 @@ class TherapyDashboard {
                     }
                 }
 
-                // Sync text voice settings from database
-                if (data.voice_gender) this._setSegmentActive("clinicianVoiceGender", data.voice_gender);
-                if (data.tempo) this._setSegmentActive("clinicianVoiceSpeed", data.tempo);
-                if (data.pitch) this._setSegmentActive("clinicianVoicePitch", data.pitch);
+                // Sync text voice settings from database/server state
+                if (data.voice_gender) {
+                    this.voiceState.gender = data.voice_gender;
+                    this._setSegmentActive("clinicianVoiceGender", data.voice_gender);
+                }
+                if (data.tempo) {
+                    this.voiceState.tempo = data.tempo;
+                    this.voiceState.speed = data.speed !== undefined ? data.speed : (TEMPO_SPEED_MAP[data.tempo] ?? 1.0);
+                    this._setSegmentActive("clinicianVoiceSpeed", data.tempo);
+                }
+                if (data.pitch) {
+                    this.voiceState.pitch = data.pitch;
+                    this._setSegmentActive("clinicianVoicePitch", data.pitch);
+                }
+                if (data.pitch_shift !== undefined) {
+                    this.voiceState.pitchShift = data.pitch_shift;
+                }
+
+                // Sync therapist name to patient UI elements
+                if (data.therapist_name) {
+                    const statusThLabel = document.getElementById("statusTherapistLabel");
+                    const patThName = document.getElementById("patientTherapistName");
+                    if (statusThLabel) statusThLabel.innerText = data.therapist_name;
+                    if (patThName) patThName.innerText = data.therapist_name;
+                }
 
                 if (data.minutes_remaining !== undefined) {
                     this.remainingCredits = data.minutes_remaining;
@@ -709,6 +734,7 @@ class TherapyDashboard {
 
             case "monitor_ai_reply":
                 if (this.user.role === "therapist") {
+                    this.processTextForTTS(data.text);
                     this.updateLiveAIStream(data.text, false);
                 }
                 break;
@@ -942,6 +968,11 @@ class TherapyDashboard {
         } catch (err) {
             this.toast("Payment backend communication error.");
         }
+    }
+
+    async addDebugMinutes() {
+        this.toast("Adding 60 debug minutes...");
+        await this.executePurchase("debug_bypass_payment_" + Math.random());
     }
 
     generateInviteLink() {
@@ -1304,12 +1335,25 @@ class TherapyDashboard {
             if (ring) ring.classList.add("vis-active");
 
             await new Promise((resolve) => {
-                audio.onended = () => {
+                let resolved = false;
+                const safeResolve = () => {
+                    if (resolved) return;
+                    resolved = true;
                     URL.revokeObjectURL(url);
                     resolve();
                 };
-                audio.onerror = resolve;
-                audio.play().catch(resolve);
+                audio.onended = safeResolve;
+                audio.onerror = safeResolve;
+                
+                const fallbackTimeout = setTimeout(safeResolve, 15000);
+                
+                audio.onloadedmetadata = () => {
+                    clearTimeout(fallbackTimeout);
+                    const durationMs = (audio.duration || 5) * 1000;
+                    setTimeout(safeResolve, durationMs + 2000);
+                };
+
+                audio.play().catch(safeResolve);
             });
 
             if (ring) ring.classList.remove("vis-active");
