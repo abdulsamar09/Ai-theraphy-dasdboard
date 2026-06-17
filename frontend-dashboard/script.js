@@ -1,6 +1,6 @@
 /* 
-  CLINICAL SESSION CONTROLLER v2
-  Implementation: Shared Sessions, Monitoring Fan-out, Voice Config, Therapist Text
+   PSYCHOTHERAPY NOW - DASHBOARD CONTROLLER JS
+   Features: Clinician Dashboard, Patient Dashboard, Selectable Modes, Voice Customization, Text Sizes, Drawers
 */
 
 const CONFIG = {
@@ -40,7 +40,6 @@ class PatientAudioStreamer {
         this.audio.src = URL.createObjectURL(this.mediaSource);
         this.mediaSource.addEventListener('sourceopen', () => {
             try {
-                // Common WebM Opus format from MediaRecorder
                 this.sourceBuffer = this.mediaSource.addSourceBuffer('audio/webm; codecs="opus"');
                 this.sourceBuffer.addEventListener('updateend', () => this.processQueue());
             } catch (e) {
@@ -61,15 +60,11 @@ class PatientAudioStreamer {
 
     processQueue() {
         if (!this.sourceBuffer || this.sourceBuffer.updating || this.queue.length === 0) return;
-        
-        // MSE requires the first chunk (with headers) to be appended first.
-        // If we join mid-stream, the first chunk might not have EBML headers and fail.
         try {
             const chunk = this.queue.shift();
             this.sourceBuffer.appendBuffer(chunk);
         } catch (e) {
-            console.warn("MSE segment append failed (possibly missing header):", e);
-            // If it fails, we might need a fresh MediaSource when the next stream starts
+            console.warn("MSE segment append failed:", e);
         }
     }
 
@@ -86,7 +81,7 @@ class PatientAudioStreamer {
 
 class TherapyDashboard {
     constructor() {
-        console.log("TherapyDashboard v5 Initialized (Google Meet Style)");
+        console.log("TherapyDashboard Redesigned Initialized");
         this.sessionActive = false;
         this.isPaused = false;
         this.timerSeconds = 0;
@@ -103,7 +98,15 @@ class TherapyDashboard {
         this.audioChunks = [];
         this.activeChannel = null;
 
-        // Voice state — single source of truth for all TTS calls and session_config
+        // Session mode selected state
+        this.sessionMode = "supervised_client"; // default
+
+        // Comfort settings
+        this.textSize = "medium";
+        this.volume = "normal";
+        this.captionsEnabled = true;
+
+        // Voice settings
         this.voiceState = {
             gender: "female",
             tempo: "normal",
@@ -112,45 +115,33 @@ class TherapyDashboard {
             pitchShift: 0.0
         };
 
-        // Patient audio monitoring (therapist side)
+        // Patient audio monitoring
         this.monitoringPatientAudio = false;
-        this.audioStreamer = null; // initialized when needed 
+        this.audioStreamer = null;
 
-        // 🎙️ Sentence-based TTS Queue (to reduce delay)
+        // Sentence-based TTS Queue
         this.ttsQueue = [];
         this.isTTSSpeaking = false;
         this.currentTextBuffer = "";
 
-        // Audio Visualizer setup
+        // Visualizer setup
         this.audioCtx = null;
         this.analyser = null;
         this.visData = new Uint8Array(20);
         this.visInterval = null;
 
+        // Active streaming elements reference
+        this.currentAiBubble = null;
+        this.currentAiWorkspaceBlock = null;
+
+        document.body.classList.add("session-inactive");
+
         this.init();
     }
 
-    async init() {
-        this.cacheDOM();
-        this.bindEvents();
-        
-        // Auto-rejoin if we have a saved session
-        const savedSid = sessionStorage.getItem('active_session_id');
-        const wasSupervising = sessionStorage.getItem('is_supervising') === 'true';
-        if (savedSid && wasSupervising) {
-            console.log("Auto-rejoining session:", savedSid);
-            this.sessionId = savedSid;
-            this.isSupervising = true;
-            // We wait a bit for WS to connect
-            setTimeout(() => {
-                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                    this.wsSend({ type: "join_supervision", target_session_id: savedSid });
-                }
-            }, 1000);
-        }
-        
-        this.bindVoiceControls();
+    init() {
         this.checkURLParams();
+        this.bindEvents();
     }
 
     checkURLParams() {
@@ -159,275 +150,342 @@ class TherapyDashboard {
         
         if (joinId) {
             console.log("Re-establishing session ID:", joinId);
-            if (this.stageSessionInput) this.stageSessionInput.value = joinId.toUpperCase();
             this.sessionId = joinId.toUpperCase();
-            
-            // If we have a stored role or flag, restore it
             if (sessionStorage.getItem('is_supervising') === 'true') {
                 this.isSupervising = true;
             }
         }
     }
 
-    cacheDOM() {
-        this.loginOverlay = document.getElementById("loginOverlay");
-        this.loginBtn = document.getElementById("loginBtn");
-        this.loginEmail = document.getElementById("loginEmail");
-        this.logoutBtn = document.getElementById("logoutBtn");
-        this.topLoginBtn = document.getElementById("topLoginBtn");
-        this.profileBar = document.getElementById("userProfileBar");
-        this.userAvatar = document.getElementById("userAvatar");
-        this.billingPill = document.getElementById("billingPill");
-        this.creditVal = document.getElementById("creditVal");
+    bindEvents() {
+        // Esc key closes mobile drawer
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "Escape") {
+                this.toggleMobileDrawer(false);
+            }
+        });
 
-        this.sessionIdLabel = document.getElementById("sessionIdLabel");
-        this.displaySessionId = document.getElementById("displaySessionId");
-        this.patientIdBadge = document.getElementById("patientIdBadge");
-        this.leftSidebar = document.getElementById("leftSidebar");
-        this.modeTabs = document.getElementById("modeTabs");
-        this.trainingJoinPanel = document.getElementById("trainingJoinPanel");
-        this.targetSessionInput = document.getElementById("targetSessionInput");
-        this.joinConfirmBtn = document.getElementById("joinConfirmBtn");
-        this.clinicalInstructionsPanel = document.getElementById("clinicalInstructionsPanel");
-        this.updateAiInstructionBtn = document.getElementById("updateAiInstructionBtn");
-
-        this.startBtn = document.getElementById("startTherapyBtn");
-        this.pauseBtn = document.getElementById("pauseSessionBtn");
-        this.stopBtn = document.getElementById("stopSessionBtn");
-        this.activeControls = document.getElementById("activeSessionControls");
-        this.timerDisplay = document.getElementById("sessionTimer");
-        this.aiStatus = document.getElementById("aiStatus");
-        this.lockedStatusHint = document.getElementById("lockedStatusHint");
-
-        this.aiTranscript = document.getElementById("aiTranscript");
-        this.patientTranscript = document.getElementById("patientTranscript");
-        this.audioWave = document.getElementById("audioWave");
-        this.consultationLog = document.getElementById("consultationLog");
-
-        // New elements
-        this.therapistTextInput = document.getElementById("therapistTextInput");
-        this.sendTherapistTextBtn = document.getElementById("sendTherapistTextBtn");
-        this.monitorPatientAudioBtn = document.getElementById("monitorPatientAudioBtn");
-        this.monitorStatusHint = document.getElementById("monitorStatusHint");
-        this.patientAudioPlayer = document.getElementById("patientAudioPlayer");
-        this.sharePatientLinkBtn = document.getElementById("sharePatientLinkBtn");
-
-        // Stage Overlay elements (Therapist Join vs Patient Start)
-        this.clinicalStartOverlay = document.getElementById("clinicalStartOverlay");
-        this.stageJoinGroup = document.getElementById("stageJoinGroup");
-        this.stageSessionInput = document.getElementById("stageSessionInput");
-        this.stageJoinBtn = document.getElementById("stageJoinBtn");
-
-        // Patient login fields
-        this.patientLoginFields = document.getElementById("patientLoginFields");
-        this.loginAge = document.getElementById("loginAge");
-        this.loginGender = document.getElementById("loginGender");
-
-        // Mobile Toggles
-        this.mobileLeftToggle = document.getElementById("mobileLeftToggle");
-        this.mobileRightToggle = document.getElementById("mobileRightToggle");
-        this.mobileBackdrop = document.getElementById("mobileBackdrop");
-        this.rightSidebar = document.querySelector(".sidebar-panel.right");
-
-        // Step-by-step Onboarding
-        this.finishIntakeBtn = document.getElementById("finishIntakeBtn");
-        this.patientIntakeModal = document.getElementById("patientIntakeModal");
-        this.patientSessionStartBtn = document.getElementById("patientSessionStartBtn");
+        // Window resize event to close mobile drawer if expanded past mobile threshold
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1023) {
+                const drawer = document.getElementById("navigationDrawer");
+                if (drawer && drawer.classList.contains("active")) {
+                    this.toggleMobileDrawer(false);
+                }
+            }
+        });
     }
 
-    bindEvents() {
-        if (this.loginBtn) this.loginBtn.onclick = () => this.handleLogin();
-        if (this.logoutBtn) {
-            this.logoutBtn.onclick = () => {
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                sessionStorage.removeItem('access_token');
-                sessionStorage.removeItem('refresh_token');
-                // CLEANUP: Reset intake status on full logout
-                sessionStorage.removeItem('patient_intake_complete');
-                sessionStorage.removeItem('pref_age');
-                sessionStorage.removeItem('pref_gender');
-                sessionStorage.removeItem('active_session_id');
-                sessionStorage.removeItem('is_supervising');
-                window.location.href = '/register-login.html';
-            };
+    toggleMobileDrawer(open) {
+        const drawer = document.getElementById("navigationDrawer");
+        const backdrop = document.getElementById("drawerBackdrop");
+        if (drawer && backdrop) {
+            if (open) {
+                this.activeDrawerType = (this.user && this.user.role === "therapist") ? "setup" : "patient";
+                this.buildMobileDrawer();
+                drawer.classList.add("active");
+                backdrop.classList.add("active");
+                document.body.classList.add("drawer-open");
+            } else {
+                drawer.classList.remove("active");
+                backdrop.classList.remove("active");
+                document.body.classList.remove("drawer-open");
+                this.cleanupMobileDrawer();
+                this.activeDrawerType = null;
+            }
         }
-        if (this.topLoginBtn) this.topLoginBtn.onclick = () => this.loginOverlay.classList.add("active");
+    }
 
-        // Show patient fields when patient email is typed
-        if (this.loginEmail) {
-            this.loginEmail.oninput = () => {
-                const val = this.loginEmail.value.toLowerCase().trim();
-                const isPatient = val.includes("patient");
-                if (this.patientLoginFields) {
-                    this.patientLoginFields.style.display = isPatient ? "block" : "none";
+    toggleSettingsDrawer(open) {
+        const drawer = document.getElementById("navigationDrawer");
+        const backdrop = document.getElementById("drawerBackdrop");
+        if (drawer && backdrop) {
+            if (open) {
+                this.activeDrawerType = "settings";
+                this.buildMobileDrawer();
+                drawer.classList.add("active");
+                backdrop.classList.add("active");
+                document.body.classList.add("drawer-open");
+            } else {
+                drawer.classList.remove("active");
+                backdrop.classList.remove("active");
+                document.body.classList.remove("drawer-open");
+                this.cleanupMobileDrawer();
+                this.activeDrawerType = null;
+            }
+        }
+    }
+
+    buildMobileDrawer() {
+        const body = document.getElementById("drawerBodyContent");
+        if (!body) return;
+        body.innerHTML = "";
+
+        const titleText = document.getElementById("drawerTitleText");
+        const isTherapist = this.user && this.user.role === "therapist";
+
+        if (isTherapist) {
+            if (titleText) {
+                titleText.innerText = this.activeDrawerType === "settings" ? "SESSION CONTROLS" : "SESSION SETUP";
+            }
+            if (this.activeDrawerType === "settings") {
+                const rightCol = document.querySelector("#clinicianView .right-col .column-body");
+                if (rightCol) {
+                    this._shiftedFrom = rightCol;
+                    while (rightCol.firstChild) {
+                        body.appendChild(rightCol.firstChild);
+                    }
                 }
-            };
+            } else {
+                const leftCol = document.querySelector("#clinicianView .left-col .column-body");
+                if (leftCol) {
+                    this._shiftedFrom = leftCol;
+                    while (leftCol.firstChild) {
+                        body.appendChild(leftCol.firstChild);
+                    }
+                }
+            }
+        } else {
+            if (titleText) {
+                titleText.innerText = "PATIENT DASHBOARD";
+            }
+            // Patient View: Create wrapper dividers to cleanly distinguish and restore left/right contents
+            const guideWrapper = document.createElement("div");
+            guideWrapper.className = "drawer-shifted-guide";
+            const settingsWrapper = document.createElement("div");
+            settingsWrapper.className = "drawer-shifted-settings";
+            
+            body.appendChild(guideWrapper);
+            body.appendChild(settingsWrapper);
+
+            const leftCol = document.querySelector("#patientView .left-col .column-body");
+            const rightCol = document.querySelector("#patientView .right-col .column-body");
+
+            if (leftCol) {
+                while (leftCol.firstChild) {
+                    guideWrapper.appendChild(leftCol.firstChild);
+                }
+            }
+            if (rightCol) {
+                while (rightCol.firstChild) {
+                    settingsWrapper.appendChild(rightCol.firstChild);
+                }
+            }
+        }
+    }
+
+    cleanupMobileDrawer() {
+        const body = document.getElementById("drawerBodyContent");
+        if (!body) return;
+
+        const isTherapist = this.user && this.user.role === "therapist";
+        if (isTherapist) {
+            if (this._shiftedFrom) {
+                while (body.firstChild) {
+                    this._shiftedFrom.appendChild(body.firstChild);
+                }
+                this._shiftedFrom = null;
+            }
+        } else {
+            // Patient View cleanup: Move guide and settings back to their respective sidebars
+            const guideWrapper = body.querySelector(".drawer-shifted-guide");
+            const settingsWrapper = body.querySelector(".drawer-shifted-settings");
+            
+            const leftCol = document.querySelector("#patientView .left-col .column-body");
+            const rightCol = document.querySelector("#patientView .right-col .column-body");
+
+            if (guideWrapper && leftCol) {
+                while (guideWrapper.firstChild) {
+                    leftCol.appendChild(guideWrapper.firstChild);
+                }
+            }
+            if (settingsWrapper && rightCol) {
+                while (settingsWrapper.firstChild) {
+                    rightCol.appendChild(settingsWrapper.firstChild);
+                }
+            }
+        }
+        body.innerHTML = "";
+    }
+
+    selectSessionMode(mode) {
+        this.sessionMode = mode;
+        
+        // Update cards
+        document.querySelectorAll(".mode-selection-card").forEach(c => c.classList.remove("active"));
+        const activeCard = document.getElementById("mode-card-" + mode);
+        if (activeCard) activeCard.classList.add("active");
+        
+        // Toggle setup forms
+        document.querySelectorAll(".mode-fields-group").forEach(g => g.style.display = "none");
+        const activeFields = document.getElementById("fields-" + mode);
+        if (activeFields) activeFields.style.display = "block";
+        
+        // Update Title of setup
+        const titleEl = document.getElementById("modeSetupTitle");
+        if (titleEl) {
+            const formattedName = mode === "supervised_client" ? "AI-Assisted Therapy Session" :
+                                  mode === "clinician_as_client" ? "AI as Therapist (Clinician as Client)" :
+                                  mode === "ai_therapist_training" ? "AI as Therapist (Training Modality)" :
+                                  "AI as Patient";
+            titleEl.innerText = "SETUP FOR " + formattedName.toUpperCase();
         }
 
-        if (this.startBtn) this.startBtn.onclick = () => this.startSession();
-        if (this.pauseBtn) this.pauseBtn.onclick = () => this.togglePause();
-        if (this.stopBtn) this.stopBtn.onclick = () => this.endSession();
-        if (this.joinConfirmBtn) this.joinConfirmBtn.onclick = () => this.joinSupervision();
+        // Hide patient link related fields on status cards for solo modes
+        const patientRow = document.getElementById("statusPatientRow");
+        const joinRow = document.getElementById("statusJoinRow");
+        if (patientRow) patientRow.style.display = (mode === "supervised_client") ? "flex" : "none";
+        if (joinRow) joinRow.style.display = (mode === "supervised_client") ? "flex" : "none";
 
-        // Auto-save session config when dropdowns change
-        const trainingType = document.getElementById("trainingType");
-        const therapyApproach = document.getElementById("therapyApproach");
+        // Update active mode status display
+        const statusModeEl = document.getElementById("statusActiveModeText");
+        if (statusModeEl) {
+            const formattedNames = {
+                supervised_client: "AI-Assisted Therapy",
+                clinician_as_client: "Clinician as Client",
+                ai_therapist_training: "Training Modality",
+                ai_patient_roleplay: "AI as Patient"
+            };
+            statusModeEl.innerText = formattedNames[mode] || mode;
+        }
         
-        const saveConfig = () => {
-            if (!this.sessionId) return;
-            this.wsSend({
-                type: "session_config",
-                training_type: trainingType ? trainingType.value : "therapist_roleplaying_patient",
-                approach: therapyApproach ? therapyApproach.value : "CBT"
-            });
-            this.toast("Session approach updated.");
+        // Send state update
+        this.updateModeSettings();
+    }
+
+    getActiveModeConfig() {
+        const mode = this.sessionMode;
+        const config = {
+            type: "session_config",
+            session_mode: mode,
+            approach: "CBT",
+            special_instructions: "",
+            patient_profile: {},
+            roleplay_profile: {}
         };
 
-        if (trainingType) trainingType.onchange = saveConfig;
-        if (therapyApproach) therapyApproach.onchange = saveConfig;
-
-        const pMicStart = document.getElementById("startPatientBtn");
-        if (pMicStart) pMicStart.onclick = () => this.startMic("patient");
-        const pMicStop = document.getElementById("stopPatientBtn");
-        if (pMicStop) pMicStop.onclick = () => this.stopMic();
-
-        const tMicStart = document.getElementById("startTherapistBtn");
-        if (tMicStart) tMicStart.onclick = () => this.startMic("whisper");
-        const tMicStop = document.getElementById("stopTherapistBtn");
-        if (tMicStop) tMicStop.onclick = () => this.stopMic();
-
-        const wMicStart = document.getElementById("startWhisperBtn");
-        if (wMicStart) wMicStart.onclick = () => this.startMic("whisper");
-        const wMicStop = document.getElementById("stopWhisperBtn");
-        if (wMicStop) wMicStop.onclick = () => this.stopMic();
-
-        // Therapist Text — send on Ctrl+Enter or button click
-        if (this.therapistTextInput) {
-            this.therapistTextInput.onkeydown = (e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    this.sendTherapistInstruction();
-                }
+        if (mode === "supervised_client") {
+            const app = document.getElementById("approach-supervised_client")?.value || "CBT";
+            config.approach = app;
+        } else if (mode === "clinician_as_client") {
+            const app = document.getElementById("approach-clinician_as_client")?.value || "CBT";
+            config.approach = app;
+            config.special_instructions = document.getElementById("inst-clinician_as_client")?.value || "";
+        } else if (mode === "ai_therapist_training") {
+            const app = document.getElementById("approach-ai_therapist_training")?.value || "CBT";
+            config.approach = app;
+            config.roleplay_profile = {
+                client_type: document.getElementById("roleplay-client_type")?.value || "Adult client",
+                presenting_problem: document.getElementById("roleplay-problem")?.value || "Anxiety",
+                training_instructions: document.getElementById("inst-ai_therapist_training")?.value || ""
             };
-        }
-        if (this.sendTherapistTextBtn) {
-            this.sendTherapistTextBtn.onclick = () => this.sendTherapistInstruction();
-        }
-
-        // Intake Finish (legacy removed)
-
-        // Stage Join (Therapist)
-        if (this.stageJoinBtn) this.stageJoinBtn.onclick = () => this.joinFromStage();
-        if (this.stageSessionInput) {
-            this.stageSessionInput.onkeydown = (e) => {
-                if (e.key === "Enter") this.joinFromStage();
+            config.special_instructions = config.roleplay_profile.training_instructions;
+        } else if (mode === "ai_patient_roleplay") {
+            config.approach = "";
+            config.patient_profile = {
+                age: document.getElementById("ai_patient-age")?.value || "30",
+                gender: document.getElementById("ai_patient-gender")?.value || "Female",
+                presenting_problem: document.getElementById("ai_patient-problem")?.value || "Panic attacks",
+                personality_style: document.getElementById("ai_patient-personality")?.value || "Avoidant",
+                diagnosis: document.getElementById("ai_patient-diagnosis")?.value || "GAD"
             };
+            config.special_instructions = document.getElementById("inst-ai_patient_roleplay")?.value || "";
         }
 
-        if (this.monitorPatientAudioBtn) {
-            this.monitorPatientAudioBtn.onclick = () => this.togglePatientAudioMonitor();
-        }
+        // Include audio config parameters
+        config.voice_gender = this.voiceState.gender;
+        config.tempo = this.voiceState.tempo;
+        config.pitch = this.voiceState.pitch;
+        config.speed = this.voiceState.speed;
+        config.pitch_shift = this.voiceState.pitchShift;
 
-        if (this.sharePatientLinkBtn) {
-            this.sharePatientLinkBtn.onclick = () => {
-                this.openInviteModal();
-            };
-        }
+        return config;
+    }
 
-        // Mobile Toggles
-        if (this.mobileLeftToggle) {
-            this.mobileLeftToggle.onclick = () => this.toggleSidebar("left");
-        }
-        if (this.mobileRightToggle) {
-            this.mobileRightToggle.onclick = () => this.toggleSidebar("right");
-        }
-        if (this.mobileBackdrop) {
-            this.mobileBackdrop.onclick = () => this.closeAllSidebars();
+    updateModeSettings() {
+        if (!this.sessionId) return;
+        const config = this.getActiveModeConfig();
+        this.wsSend(config);
+    }
+
+    sendClinicalDirective() {
+        const input = document.getElementById("clinicianTextDirectiveInput");
+        if (!input) return;
+        const text = input.value.trim();
+        if (text) {
+            this.wsSend({ type: "therapist_instruction", text: text });
+            
+            // Append note block locally
+            this.appendWorkspaceBlock("note", "CLINICIAN NOTE", text);
+            input.value = "";
+            this.toast("Clinical directive sent to AI");
         }
     }
 
-    toggleSidebar(side) {
-        if (side === "left") {
-            this.leftSidebar.classList.toggle("mobile-active");
-            if (this.rightSidebar) this.rightSidebar.classList.remove("mobile-active");
-        } else {
-            if (this.rightSidebar) this.rightSidebar.classList.toggle("mobile-active");
-            this.leftSidebar.classList.remove("mobile-active");
-        }
-        
-        const isActive = this.leftSidebar.classList.contains("mobile-active") || 
-                        (this.rightSidebar && this.rightSidebar.classList.contains("mobile-active"));
-        
-        if (this.mobileBackdrop) {
-            this.mobileBackdrop.classList.toggle("active", isActive);
+    handleDirectiveKey(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            this.sendClinicalDirective();
         }
     }
 
-    closeAllSidebars() {
-        this.leftSidebar.classList.remove("mobile-active");
-        if (this.rightSidebar) this.rightSidebar.classList.remove("mobile-active");
-        if (this.mobileBackdrop) this.mobileBackdrop.classList.remove("active");
+    sendPatientTextMessage() {
+        const input = document.getElementById("patientTextInput");
+        if (!input) return;
+        const text = input.value.trim();
+        if (text) {
+            this.wsSend({ type: "user_message", text: text });
+            
+            // Append bubble locally
+            this.appendPatientBubble("you", "YOU", text);
+            input.value = "";
+        }
     }
 
-    // ─── VOICE CONTROLS ──────────────────────────────────────────────────────
+    handlePatientTextKey(e) {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            this.sendPatientTextMessage();
+        }
+    }
 
-    bindVoiceControls() {
-        this._bindSegmentGroup("genderSelect", (val) => {
+    changeTextSize(size) {
+        this.textSize = size;
+        const body = document.getElementById("patientChatBody");
+        if (body) {
+            body.style.fontSize = size === 'small' ? '12px' : size === 'large' ? '16px' : '14px';
+        }
+        this._setSegmentActive("patientTextSize", size);
+    }
+
+    changeVolume(level) {
+        this.volume = level;
+        this._setSegmentActive("patientVolume", level);
+    }
+
+    toggleCaptions() {
+        const toggle = document.getElementById("captionsToggle");
+        if (toggle) {
+            this.captionsEnabled = toggle.checked;
+        }
+    }
+
+    changeVoiceSetting(type, val) {
+        if (type === 'gender') {
             this.voiceState.gender = val;
-            this.pushVoiceConfig();
-        });
-        this._bindSegmentGroup("tempoSelect", (val) => {
+            this._setSegmentActive("clinicianVoiceGender", val);
+        } else if (type === 'tempo') {
             this.voiceState.tempo = val;
             this.voiceState.speed = TEMPO_SPEED_MAP[val] ?? 1.0;
-            this.pushVoiceConfig();
-        });
-        this._bindSegmentGroup("pitchSelect", (val) => {
+            this._setSegmentActive("clinicianVoiceSpeed", val);
+        } else if (type === 'pitch') {
             this.voiceState.pitch = val;
-            this.pushVoiceConfig();
-        });
-
-        // Live tweaks
-        const adjSlower = document.getElementById("adjSlower");
-        const adjFaster = document.getElementById("adjFaster");
-        const adjLower  = document.getElementById("adjLower");
-        const adjHigher = document.getElementById("adjHigher");
-
-        if (adjSlower) adjSlower.onclick = () => {
-            this.voiceState.speed = Math.max(0.25, parseFloat((this.voiceState.speed - 0.1).toFixed(2)));
-            this.toast(`Speed: ${this.voiceState.speed.toFixed(1)}x`);
-            this.pushVoiceConfig();
-        };
-        if (adjFaster) adjFaster.onclick = () => {
-            this.voiceState.speed = Math.min(4.0, parseFloat((this.voiceState.speed + 0.1).toFixed(2)));
-            this.toast(`Speed: ${this.voiceState.speed.toFixed(1)}x`);
-            this.pushVoiceConfig();
-        };
-        if (adjLower) adjLower.onclick = () => {
-            this.voiceState.pitchShift = Math.max(-5, this.voiceState.pitchShift - 1);
-            this.toast(`Pitch shift: ${this.voiceState.pitchShift}`);
-            this.pushVoiceConfig();
-        };
-        if (adjHigher) adjHigher.onclick = () => {
-            this.voiceState.pitchShift = Math.min(5, this.voiceState.pitchShift + 1);
-            this.toast(`Pitch shift: ${this.voiceState.pitchShift}`);
-            this.pushVoiceConfig();
-        };
+            this._setSegmentActive("clinicianVoicePitch", val);
+        }
+        this.pushVoiceConfig();
+        this.toast(`AI voice setting updated: ${type} -> ${val}`);
     }
 
-    _bindSegmentGroup(containerId, onChange) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        container.querySelectorAll(".segment-btn").forEach(btn => {
-            btn.onclick = () => {
-                container.querySelectorAll(".segment-btn").forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-                onChange(btn.dataset.val);
-            };
-        });
-    }
-
-    // Send voice config to backend session (if session exists)
     pushVoiceConfig() {
         if (!this.sessionId) return;
         this.wsSend({
@@ -440,223 +498,60 @@ class TherapyDashboard {
         });
     }
 
-    // ─── AUTH & ROLE UI ───────────────────────────────────────────────────────
-
-    async handleLogin() {
-        const email = this.loginEmail.value.trim();
-        const password = document.getElementById("loginPassword")?.value || "password";
-        const age = this.loginAge ? this.loginAge.value.trim() : "";
-        const gender = this.loginGender ? this.loginGender.value : "";
-
-        if (!email) { this.toast("Please enter your email."); return; }
-
-        try {
-            const res = await fetch(CONFIG.ENDPOINTS.LOGIN, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password })
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                this.toast("Login Failed: " + (data.detail || "Unknown error"));
-                return;
-            }
-
-            const user = data.user;
-
-            // Block unapproved therapists
-            if (user.role === "therapist" && user.approval_status !== "approved") {
-                this.toast("⏳ Your therapist account is pending admin approval.");
-                return;
-            }
-
-            // Enrich with optional patient fields
-            if (age) user.age = age;
-            if (gender) user.gender = gender;
-
-            this.user = user;
-            this.userPassword = password; // store for WebSocket auth
-            this.applyRoleUI();
-            this.connectWS();
-        } catch (err) {
-            this.toast("Network error. Is the server running?");
-            console.error("[LOGIN]", err);
-        }
-    }
-
     applyRoleUI() {
-        if (!this.user) return; // Don't show overlay by default
-        
-        this.loginOverlay.classList.remove("active");
-        this.profileBar.style.display = "flex";
-        if (this.topLoginBtn) this.topLoginBtn.style.display = "none";
-        this.userAvatar.innerText = this.user.name.split(" ").map(n => n[0]).join("");
+        if (!this.user) return;
 
         const isTherapist = this.user.role === "therapist";
-        if (!isTherapist) this.patientOnline = true; // Patients are always "online" for themselves
-        const intakeDone = sessionStorage.getItem('patient_intake_complete') === 'true';
+        const clinicianView = document.getElementById("clinicianView");
+        const patientView = document.getElementById("patientView");
 
-        console.log(`[RoleUI] Role: ${this.user.role}, IntakeDone: ${intakeDone}`);
-
-        // Role-gated elements
-        document.querySelectorAll("[data-role]").forEach(el => {
-            const role = el.dataset.role;
-            const isVisible = (role === "therapist" && isTherapist) || (role === "patient" && !isTherapist);
-            
-            if (isVisible) {
-                // Patient intake modal logic
-                if (el.id === "patientIntakeModal") {
-                    // Only show if patient and details are missing or "Pending"
-                    const needsIntake = !isTherapist && (!this.user.age || !this.user.gender || this.user.age === 'Pending' || this.user.gender === 'Pending');
-                    if (needsIntake) {
-                        el.style.setProperty('display', 'flex', 'important');
-                    } else {
-                        el.style.setProperty('display', 'none', 'important');
-                    }
-                    return;
-                }
-                const needsFlex = ["therapistMics", "patientAudioMonitorRow", "stageJoinGroup"].includes(el.id);
-                el.style.display = needsFlex ? "flex" : "block";
-            } else {
-                el.style.display = "none";
-            }
-        });
-
-        // Patient start button is always shown for patients — therapist sets profile
-        if (!isTherapist) {
-            if (this.patientSessionStartBtn) {
-                this.patientSessionStartBtn.style.setProperty('display', 'flex', 'important');
-            }
-            // Patient intake modal visibility is handled in the data-role loop above
-        } else if (isTherapist) {
-            // Force hide patient start button for therapists
-            if (this.patientSessionStartBtn) {
-                this.patientSessionStartBtn.style.setProperty('display', 'none', 'important');
-            }
-            // Ensure join group is visible if session is not active
-            if (this.stageJoinGroup && !this.sessionActive) {
-                this.stageJoinGroup.style.display = "flex";
-            }
-        }
-
-        if (this.modeTabs) this.modeTabs.style.display = "none";
-        if (this.trainingJoinPanel) this.trainingJoinPanel.style.display = "none";
-        if (this.leftSidebar) this.leftSidebar.style.display = isTherapist ? "flex" : "none";
-
-        // Billing — show minutes_remaining for all roles, but only allow purchase for therapists
-        if (this.billingPill) {
-            this.billingPill.style.display = "flex";
-            
-            if (isTherapist) {
-                this.billingPill.style.cursor = "pointer";
-                this.billingPill.title = "Add Minutes";
-                this.billingPill.setAttribute('onclick', 'window.dashboard.buyMinutes()');
-            } else {
-                this.billingPill.style.cursor = "default";
-                this.billingPill.title = "Session Minutes Remaining";
-                this.billingPill.removeAttribute('onclick');
-            }
-
-            // Hide the "+" add icon for patients
-            const addIcon = this.billingPill.querySelector('.add-credit-icon');
-            if (addIcon) addIcon.style.display = isTherapist ? "inline" : "none";
-
-            // Prioritize the live remainingCredits if already set by WebSocket, otherwise fallback to user profile
-            if (this.remainingCredits === undefined || this.remainingCredits === null || this.remainingCredits === 0) {
-                 this.remainingCredits = this.user.minutes_remaining ?? 0;
-            }
-            const mins = this.remainingCredits.toFixed(1);
-            if (this.creditVal) this.creditVal.innerText = mins;
-            const sidebarMins = document.getElementById('sidebarCreditVal');
-            if (sidebarMins) sidebarMins.innerText = mins;
-        }
-
-        // Voice config panel — now handled by data-role loop (patient only)
-
-        // Patient profile card (right sidebar)
-        const patientInfoCard = document.getElementById("patientInfoCard");
-        if (patientInfoCard && !isTherapist) {
-            // Pick up URL params if present (from invite link)
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlAge = urlParams.get('patient_age');
-            const urlSex = urlParams.get('patient_sex');
-            
-            if (urlAge) this.user.age = urlAge;
-            if (urlSex) this.user.gender = urlSex;
-
-            patientInfoCard.style.display = "block";
-            document.getElementById("infoCardName").innerText = this.user.name || "Guest Patient";
-            document.getElementById("infoCardMeta").innerText =
-                `Age: ${this.user.age || "--"} | Gender: ${this.user.gender || "--"}`;
-            document.getElementById("infoCardRole").innerText = (this.user.role || "patient").toUpperCase();
-        }
-
-        // Therapist own profile card
-        const therapistInfoCard = document.getElementById("supervisedPatientCard");
-        if (therapistInfoCard && isTherapist) {
-            therapistInfoCard.style.display = "block";
-            document.getElementById("svdPatientName").innerText = this.user.name;
-            document.getElementById("svdPatientMeta").innerText = "Role: Clinician";
-            document.getElementById("svdPatientSession").innerText = "Enter Session ID to join a patient session";
-            document.getElementById("svdSessionStatus").innerText = "Status: Awaiting Session Join";
-            therapistInfoCard.style.background = "rgba(44, 132, 91, 0.08)";
-            therapistInfoCard.style.borderColor = "rgba(44, 132, 91, 0.3)";
-            const firstDiv = therapistInfoCard.querySelector("div");
-            if (firstDiv) {
-                firstDiv.innerText = "Signed In As";
-                firstDiv.style.color = "var(--color-primary-light)";
-            }
-        }
-
-        // Therapist mic row: ensure flex direction is column
-        const therapistMics = document.getElementById("therapistMics");
-        if (therapistMics && isTherapist) therapistMics.style.flexDirection = "column";
-
-        // Show clinical instructions panel by default for therapists
-        if (this.clinicalInstructionsPanel) {
-            this.clinicalInstructionsPanel.style.display = isTherapist ? "block" : "none";
-        }
-
-        // Enable patient audio monitoring by default for therapist
         if (isTherapist) {
-            this.monitoringPatientAudio = true;
-            if (this.monitorPatientAudioBtn) {
-                this.monitorPatientAudioBtn.style.borderColor = "var(--color-accent)";
-                this.monitorPatientAudioBtn.style.color = "var(--color-accent)";
-            }
-            if (this.monitorStatusHint) {
-                this.monitorStatusHint.innerText = "🔊 On — playing patient mic recordings";
+            document.body.classList.add("role-therapist");
+            document.body.classList.remove("role-patient");
+            if (clinicianView) clinicianView.style.display = "flex";
+            if (patientView) patientView.style.display = "none";
+
+            // Default Setup Mode Card
+            this.selectSessionMode("supervised_client");
+
+            const displayEl = document.getElementById("clinicianSessionIdDisplay");
+            if (displayEl) displayEl.value = this.sessionId || this.user.fixed_room_id || "";
+            
+            const nameEl = document.getElementById("statusClinicianName");
+            if (nameEl) nameEl.innerText = this.user.name;
+        } else {
+            document.body.classList.add("role-patient");
+            document.body.classList.remove("role-therapist");
+            if (clinicianView) clinicianView.style.display = "none";
+            if (patientView) patientView.style.display = "flex";
+
+            // Patient comfort size defaults
+            this.changeTextSize("medium");
+
+            document.querySelectorAll(".session-id-val").forEach(el => el.innerText = this.sessionId || "--------");
+
+            // Verify Intake completeness
+            const needsIntake = !this.user.age || !this.user.gender || this.user.age === 'Pending' || this.user.gender === 'Pending';
+            const intakeDone = sessionStorage.getItem('patient_intake_complete') === 'true';
+            const modal = document.getElementById("patientIntakeModal");
+            
+            if (needsIntake && !intakeDone && modal) {
+                modal.classList.add("active");
             }
         }
 
-        // Patient: pre-populate voice config defaults
-        if (!isTherapist) {
-            // defaults already set in voiceState; nothing extra needed
-        }
+        // Init Avatars
+        const initials = this.user.name.split(" ").map(n => n[0]).join("");
+        document.querySelectorAll(".user-avatar-val").forEach(el => el.innerText = initials);
 
-        // --- BUTTON LABEL OVERRIDES (Therapist Only) ---
-        if (isTherapist) {
-            const pMicBtn = document.getElementById("startPatientBtn");
-            if (pMicBtn) {
-                const svg = pMicBtn.querySelector("svg");
-                if (svg) pMicBtn.innerHTML = `${svg.outerHTML} THERAPIST TO DIRECT AI`;
-            }
-
-            const tMicBtn = document.getElementById("startTherapistBtn");
-            if (tMicBtn) {
-                const svg = tMicBtn.querySelector("svg");
-                if (svg) tMicBtn.innerHTML = `${svg.outerHTML} MIC WHISPER — SPECIAL INSTRUCTIONS`;
-            }
-        }
+        // Update Wallet Balance
+        this.updateCreditsUI();
     }
-
-    // ─── WEBSOCKET ────────────────────────────────────────────────────────────
 
     connectWS() {
         this.socket = new WebSocket(CONFIG.WS_URL);
         this.socket.binaryType = "arraybuffer";
         this.socket.onopen = () => {
-            // Send token-based auth message
             this.wsSend({
                 type: "auth",
                 token: window.sessionService.token
@@ -669,20 +564,18 @@ class TherapyDashboard {
         };
         this.socket.onmessage = (e) => {
             if (e.data instanceof ArrayBuffer) {
-                // Binary: patient audio blob received by therapist
                 this.handlePatientAudioBlob(e.data);
             } else {
                 this.handleWSMessage(JSON.parse(e.data));
             }
         };
         this.socket.onclose = (e) => {
-            console.warn("[WS] Disconnected. Code:", e.code);
-            if (e.code !== 4001) {
-                // Reconnect unless closed due to auth failure
+            console.warn("[WS] Connection lost. Attempting reconnect in 3s...", e.code);
+            if (e.code !== 4401 && e.code !== 4001) {
                 setTimeout(() => this.connectWS(), 3000);
             }
         };
-        this.socket.onerror = (err) => console.error("[WS] Error", err);
+        this.socket.onerror = (err) => console.error("WS Controller Error:", err);
     }
 
     handleWSMessage(data) {
@@ -690,144 +583,139 @@ class TherapyDashboard {
             case "session_created":
                 this.sessionId = data.session_id;
                 sessionStorage.setItem('active_session_id', this.sessionId);
+                document.querySelectorAll(".session-id-val").forEach(el => el.innerText = this.sessionId);
                 
                 if (data.minutes_remaining !== undefined) {
                     this.remainingCredits = data.minutes_remaining;
                     this.updateCreditsUI();
                 }
-
-                if (this.sessionIdLabel) this.sessionIdLabel.innerText = this.sessionId;
-                if (this.displaySessionId) this.displaySessionId.innerText = this.sessionId;
-                if (this.patientIdBadge) this.patientIdBadge.style.display = "flex";
-                // Send initial voice config to session
+                
+                // Initialize default voice parameters on server
                 this.pushVoiceConfig();
-                // Send patient profile (age/gender) to session
                 this.wsSend({
                     type: "session_config",
                     patient_age: this.user.age || "25",
-                    patient_sex: this.user.gender || "Female",
-                    voice_gender: this.voiceState.gender,
-                    tempo: this.voiceState.tempo,
-                    pitch: this.voiceState.pitch,
-                    speed: this.voiceState.speed,
-                    pitch_shift: this.voiceState.pitchShift
+                    patient_sex: this.user.gender || "Female"
                 });
-                this.toast("Session Created: " + this.sessionId);
                 break;
 
             case "session_sync":
                 this.sessionId = data.session_id;
                 sessionStorage.setItem('active_session_id', this.sessionId);
-                if (this.sessionIdLabel) this.sessionIdLabel.innerText = this.sessionId;
-                if (this.displaySessionId) this.displaySessionId.innerText = this.sessionId;
+                document.querySelectorAll(".session-id-val").forEach(el => el.innerText = this.sessionId);
+                
                 if (data.elapsed_seconds !== undefined) this.timerSeconds = data.elapsed_seconds;
-                if (this.patientIdBadge) this.patientIdBadge.style.display = "flex";
-                if (this.clinicalStartOverlay) this.clinicalStartOverlay.style.display = "none";
 
-                // Populate therapist supervised patient card
-                const svdCard = document.getElementById("supervisedPatientCard");
-                if (svdCard) {
-                    svdCard.style.display = "block";
-                    svdCard.style.background = "rgba(168,85,247,0.08)";
-                    svdCard.style.borderColor = "rgba(168,85,247,0.3)";
-                    const svdHeader = svdCard.querySelector("div");
-                    if (svdHeader) { svdHeader.innerText = "SUPERVISED PATIENT"; svdHeader.style.color = "#a855f7"; }
-                    document.getElementById("svdPatientName").innerText = data.patient_name || "Patient";
-                    document.getElementById("svdPatientMeta").innerText = `Age: ${data.patient_age || "Pending"} | Sex: ${data.patient_sex || "Pending"}`;
-                    document.getElementById("svdPatientSession").innerText = `Session: ${data.session_id}`;
-                    document.getElementById("svdSessionStatus").innerText = `Status: ${data.session_active ? "🟢 Active" : "⚫ Inactive"} ${data.patient_online ? "(👤 Patient Online)" : "(🚫 Patient Offline)"}`;
-                    this.patientOnline = data.patient_online;
+                // Sync therapist dashboard UI
+                if (this.user.role === "therapist") {
+                    const statusPatOnline = document.getElementById("statusPatientOnline");
+                    const statusJoOnline = document.getElementById("statusJoinOnline");
+                    
+                    if (statusPatOnline) {
+                        statusPatOnline.innerText = data.patient_online ? "🟢 Active" : "⚫ Offline";
+                        statusPatOnline.style.color = data.patient_online ? "var(--green)" : "var(--muted)";
+                    }
+                    if (statusJoOnline) {
+                        statusJoOnline.innerText = "🟢 Connected";
+                        statusJoOnline.style.color = "var(--green)";
+                    }
+                    
+                    const sidEl = document.getElementById("clinicianSessionIdDisplay");
+                    if (sidEl) sidEl.value = this.sessionId;
+
+                    if (data.session_mode) {
+                        this.sessionMode = data.session_mode;
+                        this.selectSessionMode(data.session_mode);
+                    }
+                } else {
+                    // Sync patient dashboard UI
+                    if (data.session_mode) {
+                        this.sessionMode = data.session_mode;
+                        const statusModeLabel = document.getElementById("statusModeLabel");
+                        if (statusModeLabel) {
+                            const formattedNames = {
+                                supervised_client: "AI-Assisted Therapy",
+                                clinician_as_client: "Clinician as Client",
+                                ai_therapist_training: "Training Modality",
+                                ai_patient_roleplay: "AI as Patient"
+                            };
+                            statusModeLabel.innerText = formattedNames[data.session_mode] || data.session_mode;
+                        }
+                    }
                 }
 
-                // Sync voice config from session to UI
-                if (data.voice_gender) this._setSegmentActive("genderSelect", data.voice_gender);
-                if (data.tempo) { this._setSegmentActive("tempoSelect", data.tempo); this.voiceState.tempo = data.tempo; }
-                if (data.pitch) { this._setSegmentActive("pitchSelect", data.pitch); this.voiceState.pitch = data.pitch; }
-                if (data.speed) this.voiceState.speed = data.speed;
-                if (data.voice_gender) this.voiceState.gender = data.voice_gender;
+                // Sync text voice settings from database
+                if (data.voice_gender) this._setSegmentActive("clinicianVoiceGender", data.voice_gender);
+                if (data.tempo) this._setSegmentActive("clinicianVoiceSpeed", data.tempo);
+                if (data.pitch) this._setSegmentActive("clinicianVoicePitch", data.pitch);
+
                 if (data.minutes_remaining !== undefined) {
                     this.remainingCredits = data.minutes_remaining;
                     this.updateCreditsUI();
                 }
 
-                // Populate ageInput/sexInput in therapist sidebar
-                if (document.getElementById("ageInput")) document.getElementById("ageInput").value = data.patient_age;
-                if (document.getElementById("sexInput")) document.getElementById("sexInput").value = data.patient_sex;
-                if (document.getElementById("customInstruction") && data.custom_instruction) {
-                    document.getElementById("customInstruction").value = data.custom_instruction;
-                }
-                if (document.getElementById("therapyApproach") && data.approach) {
-                    document.getElementById("therapyApproach").value = data.approach;
-                }
-
-                // Populate Transcript History
+                // Load historic transcripts
                 if (data.transcript) {
+                    const therapistBody = document.getElementById("clinicianWorkspaceBody");
+                    const patientBody = document.getElementById("patientChatBody");
+                    
+                    if (therapistBody) therapistBody.innerHTML = "";
+                    if (patientBody) patientBody.innerHTML = "";
+                    
+                    const thEmpty = document.getElementById("clinicianWorkspaceEmpty");
+                    const patEmpty = document.getElementById("patientChatEmpty");
+                    if (thEmpty) thEmpty.style.display = "none";
+                    if (patEmpty) patEmpty.style.display = "none";
+
                     data.transcript.forEach(msg => {
-                        if (msg.role === "patient") this.patientTranscript.innerText = "Patient: " + msg.text;
-                        else if (msg.role === "ai") this.aiTranscript.innerText = "AI: " + msg.text;
+                        const sender = msg.role === "patient" ? "CLIENT" : "AI";
+                        const patSender = msg.role === "patient" ? "YOU" : "AI THERAPIST";
+                        
+                        if (this.user.role === "therapist") {
+                            this.appendWorkspaceBlock(msg.role, sender, msg.text);
+                        } else {
+                            this.appendPatientBubble(msg.role === "patient" ? "you" : "ai", patSender, msg.text);
+                        }
                     });
                 }
+
                 if (data.session_active) this.onSessionStarted();
                 break;
 
             case "status":
-                const msg = data.message;
-                this.toast(msg);
-                if (msg.includes("Started")) this.onSessionStarted();
-                if (msg.includes("Ended")) this.onSessionEnded();
-                if (msg.includes("Paused")) {
+                this.toast(data.message);
+                if (data.message.includes("Started")) this.onSessionStarted();
+                if (data.message.includes("Ended")) this.onSessionEnded();
+                if (data.message.includes("Paused")) {
                     this.isPaused = true;
-                    this.pauseBtn.innerText = "RESUME";
                     this.updateAIStatus("⏸ Session Paused", false);
-                    const pStart = document.getElementById("startPatientBtn");
-                    if (pStart) { pStart.disabled = true; pStart.style.opacity = "0.3"; }
                 }
-                if (msg.includes("Resumed")) {
+                if (data.message.includes("Resumed")) {
                     this.isPaused = false;
-                    this.pauseBtn.innerText = "PAUSE";
                     this.updateAIStatus("▶ Session Active", true);
-                    const pStart = document.getElementById("startPatientBtn");
-                    if (pStart) { pStart.disabled = false; pStart.style.opacity = "1"; }
-                }
-                if (msg.includes("Instruction Sent")) {
-                    if (this.therapistTextInput) this.therapistTextInput.value = "";
                 }
                 break;
 
             case "monitor_patient_text":
-                this.patientTranscript.innerText = "Patient: " + data.text;
-                this.patientTranscript.classList.remove("opacity-50");
-                if (this.consultationLog) {
-                    const entry = document.createElement("div");
-                    entry.style.cssText = "color: #94a3b8; border-left: 2px solid var(--color-primary); padding-left: 8px; margin-bottom: 6px; font-size: 13px;";
-                    entry.innerText = `[PATIENT] ${data.text}`;
-                    this.consultationLog.prepend(entry);
+                if (this.user.role === "therapist") {
+                    this.appendWorkspaceBlock("client", "CLIENT", data.text);
                 }
                 break;
 
             case "chunk":
-                if (this.aiTranscript.innerText.includes("Ready")) this.aiTranscript.innerText = "AI: ";
-                const chunk = data.text;
-                this.aiTranscript.innerText += chunk;
-                this.processTextForTTS(chunk); // New streaming logic
+                this.processTextForTTS(data.text);
+                this.updateLiveAIStream(data.text, false);
                 break;
 
             case "monitor_ai_reply":
-                if (this.aiTranscript.innerText.includes("Ready")) this.aiTranscript.innerText = "AI: ";
-                this.aiTranscript.innerText += data.text;
+                if (this.user.role === "therapist") {
+                    this.updateLiveAIStream(data.text, false);
+                }
                 break;
 
             case "final":
-                this.aiTranscript.innerText = "AI: " + data.text;
-                // Add to log
-                if (this.consultationLog) {
-                    const entry = document.createElement("div");
-                    entry.style.cssText = "color: #cbd5e1; border-left: 2px solid #cbd5e1; padding-left: 8px; margin-bottom: 6px; font-size: 13px; opacity: 0.8;";
-                    entry.innerText = `[AI] ${data.text}`;
-                    this.consultationLog.prepend(entry);
-                }
-                // Handle any remaining text in buffer
-                this.processTextForTTS("", true); 
+                this.processTextForTTS("", true);
+                this.updateLiveAIStream(data.text, true);
                 break;
 
             case "credits":
@@ -836,18 +724,14 @@ class TherapyDashboard {
                 break;
 
             case "therapist_reply":
-                // This is the therapist's own speech in the conference call.
-                // It shows in the therapist's consultation log for reference.
-                const tEntry = document.createElement("div");
-                tEntry.style.cssText = "color: #a855f7; border-left: 2px solid #a855f7; padding-left: 8px; margin-bottom: 6px; font-size: 13px;";
-                tEntry.innerText = "[THERAPIST SAYS] " + data.text;
-                if (this.consultationLog) this.consultationLog.prepend(tEntry);
+                if (this.user.role === "therapist") {
+                    this.appendWorkspaceBlock("note", "THERAPIST RESPONSE", data.text);
+                }
                 break;
 
             case "error":
                 this.toast("⚠ " + data.message);
-                // If trial ends or balance is out, auto-show payment for therapist
-                if (this.user && this.user.role === "therapist" && (data.message.toLowerCase().includes("trial ended") || data.message.toLowerCase().includes("purchase"))) {
+                if (data.message.toLowerCase().includes("trial ended") || data.message.toLowerCase().includes("purchase")) {
                     setTimeout(() => this.buyMinutes(), 1500);
                 }
                 break;
@@ -855,84 +739,141 @@ class TherapyDashboard {
     }
 
     wsSend(payload) {
-        if (this.socket && this.socket.readyState === 1) {
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.send(JSON.stringify({ ...payload, session_id: this.sessionId }));
         }
     }
 
-    // ─── SESSION CONTROLS ─────────────────────────────────────────────────────
+    appendWorkspaceBlock(type, sender, text, timeStr) {
+        const body = document.getElementById("clinicianWorkspaceBody");
+        const empty = document.getElementById("clinicianWorkspaceEmpty");
+        if (!body) return;
 
-    startSession() { 
-        // Priority: 1) URL invite params, 2) user object (set by invite modal), 3) defaults
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlAge = urlParams.get('patient_age');
-        const urlSex = urlParams.get('patient_sex');
-        
-        const patientAge = urlAge || this.user.age || '25';
-        const patientSex = urlSex || this.user.gender || 'Female';
-        
-        // Store on user object for reference
-        this.user.age = patientAge;
-        this.user.gender = patientSex;
+        if (empty) empty.style.display = "none";
 
-        const trainingType = document.getElementById("trainingType");
-        const therapyApproach = document.getElementById("therapyApproach");
-        const customInstruction = document.getElementById("customInstruction");
-        
-        this.wsSend({
-            type: "session_config",
-            patient_age: patientAge,
-            patient_sex: patientSex,
-            voice_gender: this.voiceState.gender,
-            tempo: this.voiceState.tempo,
-            pitch: this.voiceState.pitch,
-            speed: this.voiceState.speed,
-            pitch_shift: this.voiceState.pitchShift,
-            ai_role: trainingType ? trainingType.value : "therapist_roleplaying_patient",
-            approach: therapyApproach ? therapyApproach.value : "NLP",
-            custom_instruction: customInstruction ? customInstruction.value : ""
-        });
+        const block = document.createElement("div");
+        block.className = `workspace-block ${type}-block`;
 
-        this.wsSend({ type: "session_control", command: "START_THERAPY" }); 
+        const finalTime = timeStr || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        block.innerHTML = `
+            <div class="block-header">
+                ${sender}
+                <span class="block-time">${finalTime}</span>
+            </div>
+            <div class="block-text">${text}</div>
+        `;
+
+        body.appendChild(block);
+        body.scrollTop = body.scrollHeight;
     }
+
+    appendPatientBubble(type, sender, text, timeStr) {
+        const body = document.getElementById("patientChatBody");
+        const empty = document.getElementById("patientChatEmpty");
+        if (!body) return;
+
+        if (empty) empty.style.display = "none";
+
+        const wrapper = document.createElement("div");
+        wrapper.className = `bubble-wrapper ${type}`;
+
+        const finalTime = timeStr || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        wrapper.innerHTML = `
+            <div class="bubble-sender">${sender} <span style="font-size:9px; color:var(--muted); font-weight:normal; margin-left:4px;">${finalTime}</span></div>
+            <div class="chat-bubble">${text}</div>
+        `;
+
+        body.appendChild(wrapper);
+        body.scrollTop = body.scrollHeight;
+    }
+
+    updateLiveAIStream(chunkText, isFinal) {
+        const isTherapist = this.user.role === "therapist";
+        
+        if (isTherapist) {
+            const body = document.getElementById("clinicianWorkspaceBody");
+            if (!body) return;
+
+            if (isFinal) {
+                if (this.currentAiWorkspaceBlock) {
+                    this.currentAiWorkspaceBlock.querySelector(".block-text").innerText = chunkText;
+                    this.currentAiWorkspaceBlock.classList.remove("streaming");
+                    this.currentAiWorkspaceBlock = null;
+                } else {
+                    this.appendWorkspaceBlock("ai", "AI", chunkText);
+                }
+            } else {
+                if (!this.currentAiWorkspaceBlock) {
+                    this.appendWorkspaceBlock("ai", "AI", "");
+                    this.currentAiWorkspaceBlock = body.querySelector(".workspace-block.ai-block:last-child");
+                    this.currentAiWorkspaceBlock.classList.add("streaming");
+                }
+                const blockText = this.currentAiWorkspaceBlock.querySelector(".block-text");
+                if (blockText) blockText.innerText += chunkText;
+            }
+        } else {
+            const body = document.getElementById("patientChatBody");
+            if (!body) return;
+
+            if (isFinal) {
+                if (this.currentAiBubble) {
+                    this.currentAiBubble.querySelector(".chat-bubble").innerText = chunkText;
+                    this.currentAiBubble.classList.remove("streaming");
+                    this.currentAiBubble = null;
+                } else {
+                    this.appendPatientBubble("ai", "AI THERAPIST", chunkText);
+                }
+            } else {
+                if (!this.currentAiBubble) {
+                    this.appendPatientBubble("ai", "AI THERAPIST", "");
+                    this.currentAiBubble = body.querySelector(".bubble-wrapper.ai:last-child");
+                    this.currentAiBubble.classList.add("streaming");
+                }
+                const bubbleText = this.currentAiBubble.querySelector(".chat-bubble");
+                if (bubbleText) bubbleText.innerText += chunkText;
+            }
+        }
+    }
+
+    startClinicalSession() {
+        if (this.remainingCredits < 1) {
+            const modal = document.getElementById("rechargeModal");
+            if (modal) modal.classList.add("active");
+            return;
+        }
+
+        const config = this.getActiveModeConfig();
+        this.wsSend(config);
+        this.wsSend({ type: "session_control", command: "START_THERAPY" });
+    }
+
     togglePause() {
         this.isPaused = !this.isPaused;
         this.wsSend({ type: "session_control", command: this.isPaused ? "PAUSE" : "RESUME" });
-        this.pauseBtn.innerText = this.isPaused ? "RESUME" : "PAUSE";
+        const pauseBtn = document.getElementById("clinicianPauseBtn");
+        if (pauseBtn) pauseBtn.innerText = this.isPaused ? "RESUME SESSION" : "PAUSE SESSION";
     }
-    endSession() { this.wsSend({ type: "session_control", command: "STOP" }); }
 
-    async buyMinutes() {
+    endSession() {
+        this.wsSend({ type: "session_control", command: "STOP" });
+    }
+
+    buyMinutes() {
         if (this.user.role !== "therapist") {
-            this.toast("Only clinicians can purchase minutes.");
+            this.toast("Only clinicians can purchase platform minutes.");
             return;
         }
 
         const modal = document.getElementById("paymentModal");
         if (!modal) {
-            if (!confirm("Add 100 Clinical Minutes for testing?")) return;
             this.executePurchase();
             return;
         }
 
         modal.style.display = "flex";
 
-        // Cancel button
-        const cancelBtn = document.getElementById("cancelPaymentBtn");
-        if (cancelBtn) cancelBtn.onclick = () => modal.style.display = "none";
-
-        // 'X' Close button
-        const closeBtn = document.getElementById("closePaymentBtn");
-        if (closeBtn) closeBtn.onclick = () => modal.style.display = "none";
-
-        // Close on clicking outside the card
-        modal.onclick = (e) => {
-            if (e.target === modal) {
-                modal.style.display = "none";
-            }
-        };
-
-        // Clear any previously rendered PayPal buttons
         const container = document.getElementById("paypal-button-container");
         const loading   = document.getElementById("paypal-loading");
         const errorBox  = document.getElementById("paypal-error");
@@ -940,20 +881,13 @@ class TherapyDashboard {
         if (errorBox)  { errorBox.style.display = "none"; errorBox.textContent = ""; }
 
         if (typeof paypal === "undefined") {
-            if (loading) loading.textContent = "PayPal failed to load. Please refresh.";
+            if (loading) loading.textContent = "PayPal payment system failed to load. Reload required.";
             return;
         }
         if (loading) loading.style.display = "none";
 
         paypal.Buttons({
-            style: {
-                layout : "vertical",  // shows PayPal + Venmo stacked
-                color  : "blue",
-                shape  : "rect",
-                label  : "pay"
-            },
-
-            // Create the $24 order on PayPal
+            style: { layout: "vertical", color: "blue", shape: "rect", label: "pay" },
             createOrder: (data, actions) => {
                 return actions.order.create({
                     purchase_units: [{
@@ -962,238 +896,244 @@ class TherapyDashboard {
                     }]
                 });
             },
-
-            // Called when buyer completes payment
             onApprove: async (data, actions) => {
                 try {
                     await actions.order.capture();
                     modal.style.display = "none";
-                    await this.executePurchase(); // credits minutes on backend
+                    await this.executePurchase(data.orderID);
                 } catch (err) {
                     if (errorBox) {
-                        errorBox.textContent = "Payment failed. Please try again.";
+                        errorBox.textContent = "Capture error. Try again.";
                         errorBox.style.display = "block";
                     }
                 }
             },
-
-            // Buyer clicked Cancel
             onCancel: () => {
                 modal.style.display = "none";
                 this.toast("Payment cancelled.");
             },
-
-            // PayPal SDK error
             onError: (err) => {
                 if (errorBox) {
-                    errorBox.textContent = "PayPal error. Try again or contact support.";
+                    errorBox.textContent = "Transaction failed.";
                     errorBox.style.display = "block";
                 }
             }
         }).render("#paypal-button-container");
     }
 
-    async executePurchase() {
+    async executePurchase(orderId) {
         try {
-            const token = window.sessionService ? window.sessionService.token : localStorage.getItem('access_token');
+            const token = window.sessionService.token;
             const res = await fetch(CONFIG.BACKEND_BASE_URL + '/api/account/purchase-minutes', {
                 method: "POST",
-                headers: { "Authorization": "Bearer " + token }
+                headers: { 
+                    "Authorization": "Bearer " + token,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ order_id: orderId || "local_bypass" })
             });
             const data = await res.json();
             if (res.ok) {
-                this.toast("Payment successful! Balance updated.");
+                this.toast("Deposit processed successfully!");
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                this.toast("Purchase failed: " + (data.detail || "Error"));
+                this.toast("Deposit error: " + (data.detail || "Verification failed"));
             }
         } catch (err) {
-            console.error(err);
-            this.toast("Network error during purchase.");
+            this.toast("Payment backend communication error.");
         }
     }
 
-    // ─── PATIENT INVITE MODAL ──────────────────────────────────────────────────
-
-    openInviteModal() {
-        const modal = document.getElementById('patientInviteModal');
-        if (!modal) { 
-            console.error('[InviteModal] Modal element not found!'); 
-            return; 
-        }
-
-        // Generate link immediately
-        this.generatePatientInviteLink();
-
-        // Force display with important to override any conflicting rules
-        modal.style.removeProperty('display');
-        modal.style.setProperty('display', 'flex', 'important');
-    }
-
-    generatePatientInviteLink() {
-        const linkBox = document.getElementById('generatedLinkBox');
-        const copyBtn = document.getElementById('copyInviteLinkBtn');
-
-        // Show UI by default now
-        if (linkBox) linkBox.style.display = 'block';
-        if (copyBtn) {
-            copyBtn.style.opacity = '1';
-            copyBtn.style.pointerEvents = 'auto';
-        }
-
-        // Build invite URL
-        let roomId = this.stageSessionInput ? this.stageSessionInput.value.trim() : "";
-        if (!roomId) roomId = this.sessionId;
-        if (!roomId && this.user) roomId = this.user.fixed_room_id;
-        if (!roomId) roomId = "ROOM-" + Math.floor(Math.random() * 10000);
+    generateInviteLink() {
+        let roomId = this.sessionId || this.user.fixed_room_id;
+        if (!roomId) roomId = "ROOM-" + Math.floor(1000 + Math.random() * 9000);
         
-        // Auto-fill supervision inputs
-        if (this.stageSessionInput) this.stageSessionInput.value = roomId;
-        if (this.targetSessionInput) this.targetSessionInput.value = roomId;
-
         const base = window.location.origin + window.location.pathname;
-        let link = `${base}?role=patient&sid=${roomId}`;
-
-        // Show the link box
-        const linkInput = document.getElementById('generatedLinkInput');
+        const link = `${base}?role=patient&sid=${roomId}`;
+        
+        const linkInput = document.getElementById("patientLinkInput");
         if (linkInput) linkInput.value = link;
+        
+        this.sessionId = roomId;
+        const idDisplay = document.getElementById("clinicianSessionIdDisplay");
+        if (idDisplay) idDisplay.value = roomId;
+        
+        this.toast("Generated patient invite link!");
+    }
+    
+    copyInviteLink() {
+        const linkInput = document.getElementById("patientLinkInput");
+        if (linkInput && linkInput.value) {
+            navigator.clipboard.writeText(linkInput.value).then(() => {
+                this.toast("Invite link copied!");
+            }).catch(() => {
+                linkInput.select();
+                document.execCommand('copy');
+                this.toast("Link copied.");
+            });
+        } else {
+            this.toast("Click 'Generate Link' first.");
+        }
     }
 
-    copyGeneratedLink() {
-        const linkInput = document.getElementById('generatedLinkInput');
-        if (!linkInput || !linkInput.value) return;
-        navigator.clipboard.writeText(linkInput.value).then(() => {
-            this.toast('✅ Link copied successfully!');
-            setTimeout(() => {
-                const modal = document.getElementById('patientInviteModal');
-                if (modal) modal.style.setProperty('display', 'none', 'important');
-            }, 600);
-        }).catch(() => {
-            linkInput.select();
-            document.execCommand('copy');
-            this.toast('✅ Link copied!');
-            setTimeout(() => {
-                const modal = document.getElementById('patientInviteModal');
-                if (modal) modal.style.setProperty('display', 'none', 'important');
-            }, 600);
-        });
+    async sendPatientInviteEmail() {
+        const feedbackEl = document.getElementById("inviteFeedbackText");
+        if (feedbackEl) {
+            feedbackEl.style.display = "none";
+            feedbackEl.innerText = "";
+        }
+
+        const linkInput = document.getElementById("patientLinkInput");
+        const patientLink = linkInput ? linkInput.value.trim() : "";
+        
+        // 1. Check if patient link is generated
+        if (!patientLink) {
+            this.showInviteFeedback("Please generate a patient link first.", "error");
+            return;
+        }
+
+        const emailInput = document.getElementById("patientInviteEmailInput");
+        const email = emailInput ? emailInput.value.trim() : "";
+
+        // 2. Validate email input
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            this.showInviteFeedback("Please enter a valid patient email.", "error");
+            return;
+        }
+
+        try {
+            const sendBtn = document.getElementById("invite-send-btn");
+            if (sendBtn) {
+                sendBtn.disabled = true;
+                sendBtn.innerText = "Sending...";
+            }
+
+            const response = await fetch(`${CONFIG.BACKEND_BASE_URL}/api/session/send-invite`, {
+                method: "POST",
+                headers: { 
+                    "Authorization": "Bearer " + window.sessionService.token,
+                    "Content-Type": "application/json" 
+                },
+                body: JSON.stringify({
+                    session_id: this.sessionId,
+                    email: email,
+                    patient_link: patientLink
+                })
+            });
+
+            if (response.ok) {
+                this.showInviteFeedback("Invite sent successfully.", "success");
+                if (emailInput) emailInput.value = ""; // clear email input on success
+            } else {
+                const error = await response.json();
+                this.showInviteFeedback(error.detail || "Invite could not be sent. Please try again.", "error");
+            }
+        } catch (err) {
+            this.showInviteFeedback("Invite could not be sent. Please try again.", "error");
+        } finally {
+            const sendBtn = document.getElementById("invite-send-btn");
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerText = "Send Invite";
+            }
+        }
     }
 
-    joinSupervision() {
-        const id = this.targetSessionInput.value.trim().toUpperCase();
-        if (id) {
-            this.isSupervising = true;
-            this.sessionId = id;
-            sessionStorage.setItem('active_session_id', id);
-            sessionStorage.setItem('is_supervising', 'true');
-            this.wsSend({ type: "join_supervision", target_session_id: id });
+    showInviteFeedback(msg, type) {
+        const feedbackEl = document.getElementById("inviteFeedbackText");
+        if (feedbackEl) {
+            feedbackEl.innerText = msg;
+            feedbackEl.style.display = "flex";
+            if (type === "success") {
+                feedbackEl.style.color = "var(--green)";
+            } else {
+                feedbackEl.style.color = "var(--red)"; // Matches --red in styles.css
+            }
+        }
+    }
+    
+    copySessionId() {
+        const idDisplay = document.getElementById("clinicianSessionIdDisplay");
+        if (idDisplay && idDisplay.value) {
+            navigator.clipboard.writeText(idDisplay.value).then(() => {
+                this.toast("Session ID copied!");
+            });
         }
     }
 
     submitIntake() {
-        const age = document.getElementById('intakeAge').value;
-        const sex = document.getElementById('intakeSex').value;
-        
+        const age = document.getElementById("intakeAge")?.value;
+        const sex = document.getElementById("intakeSex")?.value;
         if (!age || !sex) {
-            this.toast("Please provide both age and gender.");
+            this.toast("Please provide both age and gender details.");
             return;
         }
-
+        
         this.user.age = age;
         this.user.gender = sex;
+        sessionStorage.setItem('patient_intake_complete', 'true');
         
-        // Update session config on server
+        document.getElementById("patientIntakeModal").classList.remove("active");
+        
         this.wsSend({
             type: "session_config",
             patient_name: this.user.name,
             patient_age: age,
             patient_sex: sex
         });
-
-        document.getElementById('patientIntakeModal').style.display = 'none';
-        this.toast("Details saved. Starting session...");
-        this.applyRoleUI(); // Refresh UI to show updated age/sex
-        this.startSession();
+        
+        this.wsSend({ type: "session_control", command: "START_THERAPY" });
+        this.toast("Intake completed. Initiating session...");
+        this.applyRoleUI();
     }
 
     onSessionStarted() {
-        if (this.clinicalStartOverlay) this.clinicalStartOverlay.style.display = "none";
-        if (this.sessionActive) return; // Already started
+        if (this.sessionActive) return;
         this.sessionActive = true;
-        this.activeControls.style.display = "flex";
-        if (this.lockedStatusHint) this.lockedStatusHint.style.display = "none";
+        document.body.classList.add("session-active");
+        document.body.classList.remove("session-inactive");
         this.startClock();
         
-        // Re-enable and reset opacity for all session controls
-        ["startPatientBtn", "stopPatientBtn", "startTherapistBtn", "stopTherapistBtn"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) { 
-                el.disabled = false; 
-                el.style.opacity = "1"; 
-                el.style.pointerEvents = "auto";
-            }
-        });
-        
         this.updateAIStatus("▶ Session Active", true);
-        // Reset status color to clinical green
-        if (this.aiStatus) this.aiStatus.style.color = "var(--color-primary-light)";
+        
+        // Remove start overlays
+        const fieldBlock = document.getElementById("fields-supervised_client");
+        if (fieldBlock) {
+            const startTriggers = document.querySelectorAll(".start-session-trigger");
+            startTriggers.forEach(btn => btn.disabled = true);
+        }
+        this.toast("Session initialized");
+        this.toggleMobileDrawer(false);
     }
 
     onSessionEnded() {
         this.sessionActive = false;
-        sessionStorage.removeItem('active_session_id');
-        sessionStorage.removeItem('is_supervising');
+        document.body.classList.remove("session-active");
+        document.body.classList.add("session-inactive");
         clearInterval(this.timerInterval);
-        this.updateAIStatus("Session Ended", false);
-        this.aiStatus.style.color = "var(--color-danger)";
-        this.activeControls.style.display = "none";
-        ["startPatientBtn", "stopPatientBtn", "startTherapistBtn", "stopTherapistBtn"].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) { el.disabled = true; el.style.opacity = "0.3"; }
-        });
+        this.updateAIStatus("⚫ Session Inactive", false);
+        this.toast("Session concluded.");
+        this.toggleMobileDrawer(false);
         
-        // Show the start/join overlay and ensure it respects roles
-        if (this.clinicalStartOverlay) {
-            this.clinicalStartOverlay.style.display = "block";
-            this.applyRoleUI();
-        }
+        setTimeout(() => {
+            sessionStorage.removeItem('active_session_id');
+            sessionStorage.removeItem('is_supervising');
+            window.location.reload();
+        }, 2000);
     }
 
-    joinFromStage() {
-        const id = this.stageSessionInput.value.trim().toUpperCase();
-        if (id) {
-            this.isSupervising = true;
-            this.sessionId = id;
-            sessionStorage.setItem('active_session_id', id);
-            sessionStorage.setItem('is_supervising', 'true');
-            this.wsSend({ type: "join_supervision", target_session_id: id });
-        }
-    }
-
-    // ─── MICROPHONE ────────────────────────────────────────────────────────────
-
+    /* MICROPHONE RELAY & AUDIO CAPTURE */
     async startMic(channel) {
-        if (!this.sessionId && channel === "patient") return this.toast("No active session");
-        
+        if (!this.sessionId && channel === "patient") return this.toast("Room not ready.");
         try {
-            // Resume Context (Browsers block it until user interaction)
             if (this.audioCtx && this.audioCtx.state === 'suspended') {
                 await this.audioCtx.resume();
             }
 
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            // Setup Visualizer
             this.setupVisualizer(stream);
 
-            // Robust mimeType Selection
-            const types = [
-                'audio/webm; codecs=opus',
-                'audio/webm',
-                'audio/ogg; codecs=opus',
-                'audio/mp4',
-                ''
-            ];
+            const types = ['audio/webm; codecs=opus', 'audio/webm', 'audio/ogg; codecs=opus', 'audio/mp4', ''];
             let mimeType = '';
             for (const t of types) {
                 if (t === '' || MediaRecorder.isTypeSupported(t)) {
@@ -1201,7 +1141,6 @@ class TherapyDashboard {
                     break;
                 }
             }
-            console.log("Using recorder mimeType:", mimeType);
 
             this.mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
             this.audioChunks = [];
@@ -1209,7 +1148,6 @@ class TherapyDashboard {
             this.mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) {
                     this.audioChunks.push(e.data);
-                    // Real-time relay to therapist
                     if (channel === "patient" && this.sessionId) {
                         this._relayPatientAudioToTherapist(e.data);
                     }
@@ -1219,11 +1157,9 @@ class TherapyDashboard {
             this.mediaRecorder.onstop = async () => {
                 this.stopVisualizer();
                 const blob = new Blob(this.audioChunks, { type: this.mediaRecorder.mimeType || "audio/webm" });
-                console.log(`Stop bit. Blob size: ${blob.size}`);
-                
-                if (blob.size < 1000) return console.warn("Audio too short.");
+                if (blob.size < 1000) return;
 
-                this.toast("Processing...");
+                this.toast("AI Processing audio...");
                 
                 const fd = new FormData();
                 fd.append("file", blob);
@@ -1231,23 +1167,17 @@ class TherapyDashboard {
                     const res = await fetch(CONFIG.ENDPOINTS.STT, { method: "POST", body: fd });
                     const data = await res.json();
                     if (data.text) {
-                        const type =
-                            channel === "patient" ? "user_message" :
-                            channel === "therapist" ? "therapist_message" :
-                            "whisper";
-                        
+                        const type = channel === "patient" ? "user_message" : "whisper";
                         this.wsSend({ type, text: data.text });
 
-                        // Log voice whisper if applicable
-                        if (type === "whisper" && this.consultationLog) {
-                            const entry = document.createElement("div");
-                            entry.style.cssText = "color: #a855f7; border-left: 2px solid #a855f7; padding-left: 8px; margin-bottom: 6px; font-size: 13px;";
-                            entry.innerText = `[VOICE WHISPER] ${data.text}`;
-                            this.consultationLog.prepend(entry);
+                        if (type === "whisper" && this.user.role === "therapist") {
+                            this.appendWorkspaceBlock("note", "VOICE WHISPER DIRECTIVE", data.text);
+                        } else if (type === "user_message" && this.user.role === "patient") {
+                            this.appendPatientBubble("you", "YOU", data.text);
                         }
                     }
                 } catch (e) {
-                    this.toast("Connection Error");
+                    this.toast("Transcribe error.");
                 }
                 stream.getTracks().forEach(t => t.stop());
             };
@@ -1255,24 +1185,61 @@ class TherapyDashboard {
             this.mediaRecorder.start(250);
             this.activeChannel = channel;
             this.updateMicUI(true, channel);
-
         } catch (err) {
-            console.error("Mic error:", err);
-            this.toast("Microphone error");
+            this.toast("Microphone connection denied.");
         }
     }
 
-    // ─── STREAMING TTS LOGIC ──────────────────────────────────────────────────
+    stopMic() {
+        if (this.mediaRecorder?.state === "recording") {
+            this.mediaRecorder.stop();
+            this.updateMicUI(false);
+            this.activeChannel = null;
+        }
+    }
+
+    toggleSessionMic(channel) {
+        if (this.activeChannel === channel) {
+            this.stopMic();
+        } else {
+            if (this.activeChannel) this.stopMic();
+            this.startMic(channel);
+        }
+    }
+
+    updateMicUI(on, channel) {
+        const clinicianWave = document.querySelector(".clinician-audio-wave");
+        const patientWave = document.querySelector(".patient-audio-wave");
+        
+        const speakBtn = document.getElementById("speakToClientBtn");
+        const whisperBtn = document.getElementById("whisperBtn");
+        const patientMicBtn = document.getElementById("patientMicBtn");
+
+        if (on) {
+            if (clinicianWave && this.user.role === "therapist") clinicianWave.style.opacity = "1";
+            if (patientWave && this.user.role === "patient") patientWave.style.opacity = "1";
+
+            if (channel === "patient") {
+                if (speakBtn) speakBtn.classList.add("btn-teal");
+                if (patientMicBtn) { patientMicBtn.classList.add("btn-danger"); patientMicBtn.innerText = "Listening... Tap to Stop"; }
+            } else if (channel === "whisper") {
+                if (whisperBtn) whisperBtn.classList.add("btn-teal");
+            }
+        } else {
+            if (clinicianWave) clinicianWave.style.opacity = "0";
+            if (patientWave) patientWave.style.opacity = "0";
+
+            if (speakBtn) speakBtn.classList.remove("btn-teal");
+            if (whisperBtn) whisperBtn.classList.remove("btn-teal");
+            if (patientMicBtn) { patientMicBtn.classList.remove("btn-danger"); patientMicBtn.innerText = "Tap to Speak"; }
+        }
+    }
 
     processTextForTTS(chunk, isFinal = false) {
         this.currentTextBuffer += chunk;
-
-        // Split by punctuation for natural breaks
-        // Matches periods, question marks, exclamation points followed by space or end of string
         const sentences = this.currentTextBuffer.split(/([.?!:;]\s+|[.?!:;]$|\n+)/);
-        
-        // We iterate and combine the split sentence with its delimiter
         let completeSentences = [];
+        
         for (let i = 0; i < sentences.length - 1; i += 2) {
             const sentence = (sentences[i] + (sentences[i+1] || "")).trim();
             if (sentence.length > 3) {
@@ -1281,10 +1248,8 @@ class TherapyDashboard {
         }
 
         if (completeSentences.length > 0) {
-            // Remaining text stays in buffer
             const lastFullIdx = this.currentTextBuffer.lastIndexOf(completeSentences[completeSentences.length - 1]);
             this.currentTextBuffer = this.currentTextBuffer.substring(lastFullIdx + completeSentences[completeSentences.length-1].length);
-
             completeSentences.forEach(s => this.addToTTSQueue(s));
         }
 
@@ -1295,7 +1260,6 @@ class TherapyDashboard {
     }
 
     addToTTSQueue(text) {
-        console.log("Adding to TTS Queue:", text);
         this.ttsQueue.push(text);
         if (!this.isTTSSpeaking) this.playNextInTTSQueue();
     }
@@ -1330,9 +1294,15 @@ class TherapyDashboard {
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
 
-            // Visualizer support for TTS
-            if (this.audioWave) this.audioWave.style.opacity = "1";
-            
+            // Respect patient comfort volume setting
+            const volumeMultiplier = this.volume === 'low' ? 0.4 : this.volume === 'high' ? 1.0 : 0.7;
+            audio.volume = volumeMultiplier;
+
+            // Trigger AI visualizer ring ripple
+            const ringId = this.user.role === "therapist" ? "clinicianOrb" : "patientOrb";
+            const ring = document.getElementById(ringId);
+            if (ring) ring.classList.add("vis-active");
+
             await new Promise((resolve) => {
                 audio.onended = () => {
                     URL.revokeObjectURL(url);
@@ -1342,71 +1312,13 @@ class TherapyDashboard {
                 audio.play().catch(resolve);
             });
 
-            if (this.ttsQueue.length === 0) {
-                 if (this.audioWave) this.audioWave.style.opacity = "0";
-                 document.querySelector('.avatar-ring')?.classList.remove('vis-active');
-            } else {
-                 document.querySelector('.avatar-ring')?.classList.add('vis-active');
-            }
+            if (ring) ring.classList.remove("vis-active");
 
         } catch (e) {
-            console.error("Queue TTS error:", e);
+            console.error("Queue play error:", e);
         }
 
-        // Delay slightly between sentences for natural flow
         setTimeout(() => this.playNextInTTSQueue(), 150);
-    }
-
-    stopMic() {
-        if (this.mediaRecorder?.state === "recording") {
-            this.mediaRecorder.stop();
-            this.updateMicUI(false);
-            this.activeChannel = null;
-        }
-    }
-
-    updateMicUI(on, channel) {
-        const icon = document.getElementById("micStateIcon");
-        const label = document.getElementById("micStatusLabel");
-
-        const pStart = document.getElementById("startPatientBtn");
-        const pStop  = document.getElementById("stopPatientBtn");
-        const tStart = document.getElementById("startTherapistBtn");
-        const tStop  = document.getElementById("stopTherapistBtn");
-        const wStart = document.getElementById("startWhisperBtn");
-        const wStop  = document.getElementById("stopWhisperBtn");
-
-        if (icon) {
-            icon.style.background = on
-                ? (channel === "patient" ? "var(--color-primary-light)" : "#a855f7")
-                : "var(--color-danger)";
-            icon.classList.toggle("active", on);
-        }
-        if (label) {
-            let statusText = on ? `LISTENING: ${channel.toUpperCase()}` : "SYSTEM: NOT LISTENING";
-            if (on && this.user && this.user.role === "therapist") {
-                if (channel === "patient") statusText = "LISTENING: ROLEPLAY / TALK TO AI";
-                if (channel === "whisper") statusText = "LISTENING: VOICE DIRECTIVE (WHISPER)";
-            }
-            label.innerText = statusText;
-            label.style.color = on ? "var(--color-primary-light)" : "var(--text-muted)";
-        }
-
-        if (on) {
-            if (pStart) pStart.disabled = true;
-            if (tStart) tStart.disabled = true;
-            if (wStart) wStart.disabled = true;
-            if (channel === "patient" && pStop) pStop.disabled = false;
-            if ((channel === "therapist" || channel === "whisper") && tStop) tStop.disabled = false;
-            if (channel === "whisper" && wStop) wStop.disabled = false;
-        } else {
-            if (pStart) pStart.disabled = false;
-            if (tStart) tStart.disabled = false;
-            if (wStart) wStart.disabled = false;
-            if (pStop) pStop.disabled = true;
-            if (tStop) tStop.disabled = true;
-            if (wStop) wStop.disabled = true;
-        }
     }
 
     setupVisualizer(stream) {
@@ -1416,54 +1328,30 @@ class TherapyDashboard {
             this.analyser = this.audioCtx.createAnalyser();
             const source = this.audioCtx.createMediaStreamSource(stream);
             source.connect(this.analyser);
-            if (this.audioWave) this.audioWave.style.opacity = "1";
-            document.querySelector('.avatar-ring')?.classList.add('vis-active');
-            // Simple visualizer interval
+            
+            const ringId = this.user.role === "therapist" ? "clinicianOrb" : "patientOrb";
+            const ring = document.getElementById(ringId);
+            if (ring) ring.classList.add("vis-active");
+
             this.visInterval = setInterval(() => {
-                if (this.analyser && this.audioWave) {
+                if (this.analyser) {
                     this.analyser.getByteFrequencyData(this.visData);
-                    const avg = this.visData.reduce((a, b) => a + b) / this.visData.length;
-                    this.audioWave.style.transform = `scaleY(${1 + avg / 128})`;
                 }
             }, 60);
-        } catch (e) { console.warn("Visualizer failed", e); }
+        } catch (e) { console.warn("Visualizer init failure", e); }
     }
 
     stopVisualizer() {
         if (this.visInterval) clearInterval(this.visInterval);
         this.visInterval = null;
-        if (this.audioWave) {
-            this.audioWave.style.opacity = "0";
-            this.audioWave.style.transform = "scaleY(1)";
-        }
-        document.querySelector('.avatar-ring')?.classList.remove('vis-active');
+        
+        const ringId = this.user.role === "therapist" ? "clinicianOrb" : "patientOrb";
+        const ring = document.getElementById(ringId);
+        if (ring) ring.classList.remove("vis-active");
     }
 
-    // ─── THERAPIST INSTRUCTIONS ───────────────────────────────────────────────
-
-    sendTherapistInstruction() {
-        const val = this.therapistTextInput?.value.trim();
-        if (val) {
-            this.wsSend({ type: "therapist_instruction", text: val });
-            // Show confirmation in consultation log
-            if (this.consultationLog) {
-                const entry = document.createElement("div");
-                entry.style.cssText = "color: #38bdf8; border-left: 2px solid #38bdf8; padding-left: 8px; margin-bottom: 6px; font-size: 13px;";
-                entry.innerText = `[DIRECTIVE SENT] ${val}`;
-                this.consultationLog.prepend(entry);
-            }
-            // textarea cleared on server ack (status "Instruction Sent")
-        }
-    }
-
-    // ─── PATIENT AUDIO RELAY ──────────────────────────────────────────────────
-
-    /**
-     * Send patient audio blob to server as binary WebSocket frame.
-     * Format: b"AUDIO:<session_id>\x00" + audio_data
-     */
     _relayPatientAudioToTherapist(blob) {
-        if (!this.socket || this.socket.readyState !== 1) return;
+        if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
         const prefix = `AUDIO:${this.sessionId}\x00`;
         const encoder = new TextEncoder();
         const prefixBytes = encoder.encode(prefix);
@@ -1476,129 +1364,71 @@ class TherapyDashboard {
         }).catch(() => {});
     }
 
-    /**
-     * Therapist receives patient audio blob (as ArrayBuffer from WS binary frame).
-     */
     handlePatientAudioBlob(arrayBuffer) {
-        if (!this.monitoringPatientAudio) return;
+        if (this.user.role !== "therapist") return;
         
-        // Use real-time audio streamer
-        if (!this.audioStreamer && this.patientAudioPlayer) {
-            this.audioStreamer = new PatientAudioStreamer(this.patientAudioPlayer);
+        if (!this.audioStreamer) {
+            const player = document.createElement("audio");
+            player.id = "patientAudioPlayer";
+            document.body.appendChild(player);
+            this.audioStreamer = new PatientAudioStreamer(player);
         }
         
-        if (this.audioStreamer) {
-            this.audioStreamer.push(arrayBuffer);
-        }
+        this.audioStreamer.push(arrayBuffer);
     }
-
-    togglePatientAudioMonitor() {
-        this.monitoringPatientAudio = !this.monitoringPatientAudio;
-        if (this.monitorPatientAudioBtn) {
-            this.monitorPatientAudioBtn.style.borderColor = this.monitoringPatientAudio ? "var(--color-accent)" : "";
-            this.monitorPatientAudioBtn.style.color = this.monitoringPatientAudio ? "var(--color-accent)" : "";
-        }
-        if (this.monitorStatusHint) {
-            this.monitorStatusHint.innerText = this.monitoringPatientAudio
-                ? "🔊 On — playing patient mic recordings"
-                : "Off — click to hear patient mic recordings";
-        }
-        this.toast(this.monitoringPatientAudio ? "Patient audio monitoring ON" : "Patient audio monitoring OFF");
-    }
-
-    // ─── TTS ──────────────────────────────────────────────────────────────────
-
-    async playTTS(text, voiceOverrides = {}) {
-        const payload = {
-            text,
-            voice_gender: voiceOverrides.voice_gender ?? this.voiceState.gender,
-            tempo:        voiceOverrides.tempo        ?? this.voiceState.tempo,
-            pitch:        voiceOverrides.pitch        ?? this.voiceState.pitch,
-            speed:        voiceOverrides.speed        ?? this.voiceState.speed,
-            pitch_shift:  this.voiceState.pitchShift
-        };
-        try {
-            const res = await fetch(CONFIG.ENDPOINTS.TTS, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const blob = await res.blob();
-            const audio = new Audio(URL.createObjectURL(blob));
-            audio.play().catch(() => {});
-            // Show audio wave animation
-            if (this.audioWave) {
-                this.audioWave.style.opacity = "1";
-                audio.onended = () => { if (this.audioWave) this.audioWave.style.opacity = "0"; };
-            }
-        } catch (e) {
-            this.toast("TTS error");
-        }
-    }
-
-    // ─── CLOCK ────────────────────────────────────────────────────────────────
 
     updateCreditsUI() {
         const mins = Math.max(0, this.remainingCredits).toFixed(1);
-        if (this.creditVal) this.creditVal.innerText = mins;
-        const sidebarMins = document.getElementById('sidebarCreditVal');
-        if (sidebarMins) sidebarMins.innerText = mins;
-        
-        // Visual warning if low
-        if (this.remainingCredits < 5) {
-            if (this.creditVal) this.creditVal.style.color = "var(--color-danger)";
-            if (sidebarMins) sidebarMins.style.color = "var(--color-danger)";
-        }
+        document.querySelectorAll(".minutes-remaining-val").forEach(el => {
+            el.innerText = mins;
+            if (this.remainingCredits < 5) {
+                el.style.color = "var(--red)";
+            } else {
+                el.style.color = "var(--teal)";
+            }
+        });
     }
-
-    // ─── CLOCK ────────────────────────────────────────────────────────────────
 
     startClock() {
         if (this.timerInterval) clearInterval(this.timerInterval);
         this.timerInterval = setInterval(() => {
-            // Therapist: Only run if patient is online. Patient: Always run if active.
-            const shouldRun = this.user.role === 'therapist' ? this.patientOnline : true;
-            if (this.isPaused || !shouldRun) return;
+            if (this.isPaused) return;
             this.timerSeconds++;
             
-            // Live Minutes Update (Decrement by 1/60th of a minute every second)
             if (this.sessionActive) {
                 this.remainingCredits -= (1 / 60);
                 this.updateCreditsUI();
                 
-                // Auto-stop if out of time
                 if (this.remainingCredits <= 0) {
-                    this.toast("Session ended: Out of minutes.");
+                    this.toast("Session balance fully utilized.");
                     this.endSession();
                 }
             }
 
             const m = String(Math.floor(this.timerSeconds / 60)).padStart(2, "0");
             const s = String(this.timerSeconds % 60).padStart(2, "0");
-            this.timerDisplay.innerText = `${m}:${s}`;
+            document.querySelectorAll(".session-timer-val").forEach(el => el.innerText = `${m}:${s}`);
         }, 1000);
     }
 
-    // ─── HELPERS ──────────────────────────────────────────────────────────────
-
     _setSegmentActive(containerId, val) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        container.querySelectorAll(".segment-btn").forEach(btn => {
-            btn.classList.toggle("active", btn.dataset.val === val);
+        const containers = document.querySelectorAll("#" + containerId + ", ." + containerId);
+        containers.forEach(container => {
+            container.querySelectorAll(".segment-btn").forEach(btn => {
+                btn.classList.toggle("active", btn.innerText.toLowerCase() === val.toLowerCase() || btn.dataset.val === val);
+            });
         });
     }
 
     updateAIStatus(text, isActive) {
-        if (!this.aiStatus) return;
-        this.aiStatus.innerHTML = `
-            <span class="status-dot ${isActive ? 'active' : ''}"></span>
-            ${text}
-        `;
+        document.querySelectorAll(".ai-status-text").forEach(el => {
+            const dot = el.querySelector(".status-dot");
+            if (dot) dot.classList.toggle("active", isActive);
+            el.innerHTML = `<span class="status-dot ${isActive ? 'active' : ''}"></span>${text}`;
+        });
     }
 
     toast(msg) {
-        // Clear any existing toasts to prevent overlapping
         const existing = document.querySelectorAll('.app-toast');
         existing.forEach(old => {
             old.style.opacity = "0";
@@ -1610,18 +1440,17 @@ class TherapyDashboard {
         t.className = "app-toast";
         Object.assign(t.style, {
             position: "fixed", bottom: "32px", left: "50%", transform: "translateX(-50%)",
-            background: "rgba(15, 23, 42, 0.95)", backdropFilter: "blur(12px)", 
+            background: "rgba(12, 20, 34, 0.95)", backdropFilter: "blur(12px)", 
             color: "#fff", padding: "12px 28px",
-            borderRadius: "100px", zIndex: "10000", fontSize: "13px", fontWeight: "600",
-            border: "1px solid rgba(255,255,255,0.15)", pointerEvents: "none",
-            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.5)",
+            borderRadius: "100px", zIndex: "100000", fontSize: "13px", fontWeight: "600",
+            border: "1px solid var(--border)", pointerEvents: "none",
+            boxShadow: "var(--shadow-lg)",
             transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
             opacity: "0", filter: "blur(10px)"
         });
         t.innerText = msg;
         document.body.appendChild(t);
         
-        // Trigger animation
         requestAnimationFrame(() => {
             t.style.opacity = "1";
             t.style.filter = "blur(0)";
@@ -1634,6 +1463,17 @@ class TherapyDashboard {
             t.style.bottom = "32px";
             setTimeout(() => { if (t.parentNode) t.remove(); }, 400);
         }, 4000);
+    }
+
+    logout() {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('refresh_token');
+        sessionStorage.removeItem('patient_intake_complete');
+        sessionStorage.removeItem('active_session_id');
+        sessionStorage.removeItem('is_supervising');
+        window.location.href = '/register-login.html';
     }
 }
 

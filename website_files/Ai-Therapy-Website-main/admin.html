@@ -565,7 +565,6 @@
     }
 
     async function updateStatus(id, newStatus) {
-      if (!confirm(`Are you sure you want to change clinician ID #${id} status to ${newStatus.toUpperCase()}?`)) return;
       try {
         const res = await fetch(`/api/admin/update-status/${id}`, { 
             method: 'POST',

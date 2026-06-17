@@ -1,4 +1,5 @@
 import os
+import httpx
 import uuid
 import time
 import json
@@ -12,11 +13,13 @@ from fastapi.responses import StreamingResponse, FileResponse, RedirectResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from openai import OpenAI
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine, Base, get_db
 from models import User, TherapistProfile, Wallet
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formatdate, make_msgid, formataddr
 
 from email.mime.application import MIMEApplication
 from fpdf import FPDF
@@ -25,30 +28,100 @@ import time
 # Create database tables if they don't exist
 Base.metadata.create_all(bind=engine)
 
+# Load environment variables
+load_dotenv()
+
 # --- EMAIL CONFIG ---
 SMTP_SERVER = "smtp.aol.com"
 SMTP_PORT = 465
 SMTP_USER = os.getenv("SMTP_USER", "jonkogen@aol.com")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM_NAME = "Psychotherapy Now"
+
+def build_email_msg(to_email: str, subject: str, text_body: str, html_body: str) -> MIMEMultipart:
+    """Build a properly-structured email message with anti-spam headers."""
+    msg = MIMEMultipart('alternative')
+    msg['From'] = formataddr((SMTP_FROM_NAME, SMTP_USER))
+    msg['To'] = to_email
+    msg['Subject'] = subject
+    msg['Date'] = formatdate(localtime=True)
+    msg['Message-ID'] = make_msgid(domain='aol.com')
+    msg['Reply-To'] = SMTP_USER
+    msg.attach(MIMEText(text_body, 'plain', 'utf-8'))
+    msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+    return msg
+
+def send_email(msg: MIMEMultipart, label: str, to_email: str):
+    """Send an email message via SMTP with logging."""
+    with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
+        server.login(SMTP_USER, SMTP_PASSWORD)
+        server.send_message(msg)
+    print(f"--- EMAIL SENT SUCCESS ({label}): {to_email} ---")
+
+def get_html_template(title: str, headline: str, content_html: str) -> str:
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; color:#333333;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5; padding:20px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border:1px solid #dddddd;">
+          <tr>
+            <td style="background-color:#1a1a2e; padding:20px; text-align:center;">
+              <h1 style="color:#ffffff; margin:0; font-size:20px; font-weight:bold;">{headline}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px; font-size:15px; line-height:1.6; color:#333333;">
+              {content_html}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px; text-align:center; font-size:12px; color:#888888; border-top:1px solid #eeeeee;">
+              Psychotherapy Now
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
 
 def send_approval_email(to_email: str, full_name: str):
     print(f"--- ATTEMPTING TO SEND APPROVAL EMAIL TO: {to_email} ---")
     try:
-        msg = MIMEMultipart()
-        msg['From'] = f"Psychotherapy Now <{SMTP_USER}>"
-        msg['To'] = to_email
-        msg['Subject'] = "Your Clinician Account has been Approved!"
-        # ... (body content remains same)
-        body = f"Dear {full_name}, ... (Approval Content)"
-        msg.attach(MIMEText(body, 'plain'))
+        text = f"""Dear {full_name},
 
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
-            server.set_debuglevel(1)
-            print("Connecting to SMTP Server (465 SSL)...")
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            print("Login successful, sending message...")
-            server.send_message(msg)
-        print(f"--- EMAIL SENT SUCCESS (Approval): {to_email} ---")
+Congratulations! Your clinician account on Psychotherapy Now has been approved by our Clinical Review Team.
+
+You can now log in to the clinician dashboard and start hosting therapy sessions. As a welcome bonus, your account has been credited with a free 20-minute practice session.
+
+Please log in using the link below:
+https://psychotherapynow.net/register-login.html
+
+Best regards,
+The Clinical Review Team
+Psychotherapy Now"""
+
+        html_content = f"""
+        <p>Dear {full_name},</p>
+        <p>Congratulations! We are pleased to inform you that your clinician account on <strong>Psychotherapy Now</strong> has been successfully reviewed and approved by our Clinical Review Team.</p>
+        <p>You can now log in to access your clinician dashboard and start using the platform. As a welcome bonus, your account has been credited with a <strong>free 20-minute practice session</strong> to help you get started.</p>
+        <p style="text-align:center; margin:24px 0;">
+          <a href="https://psychotherapynow.net/register-login.html" style="background-color:#1a1a2e; color:#ffffff; text-decoration:none; padding:12px 28px; font-weight:bold; display:inline-block;">Log In to Dashboard</a>
+        </p>
+        <p>If you have any questions or require assistance setting up your profile, please do not hesitate to contact our clinician support desk.</p>
+        <p>Best regards,<br><strong>The Clinical Review Team</strong><br>Psychotherapy Now</p>
+        """
+        html = get_html_template("Account Approved", "Account Approved!", html_content)
+        msg = build_email_msg(to_email, "Your Clinician Account has been Approved! - Psychotherapy Now", text, html)
+        send_email(msg, "Approval", to_email)
     except Exception as e:
         print(f"--- SMTP ERROR (Approval): {str(e)} ---")
         import traceback
@@ -57,30 +130,28 @@ def send_approval_email(to_email: str, full_name: str):
 def send_rejection_email(to_email: str, full_name: str):
     print(f"--- ATTEMPTING TO SEND REJECTION EMAIL TO: {to_email} ---")
     try:
-        msg = MIMEMultipart()
-        msg['From'] = f"Psychotherapy Now <{SMTP_USER}>"
-        msg['To'] = to_email
-        msg['Subject'] = "Update on Your Clinician Application"
+        text = f"""Dear {full_name},
 
-        body = f"""
-Dear {full_name},
+Thank you for your interest in joining Psychotherapy Now.
 
-Thank you for your interest in Psychotherapy Now.
+After carefully reviewing your application and credentials, our Clinical Review Team has determined that we are unable to approve your clinician account at this time.
 
-After carefully reviewing your application and credentials, we regret to inform you that we are unable to approve your clinician account at this time.
-
-If you believe this is a mistake or have updated credential documentation, please contact our support team.
+If you believe this is a mistake or if you have updated credential documentation, please reply to this email or contact our clinician support team.
 
 Best regards,
 The Clinical Review Team
-"""
-        msg.attach(MIMEText(body, 'plain'))
+Psychotherapy Now"""
 
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
-            server.set_debuglevel(1)
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-        print(f"--- EMAIL SENT SUCCESS (Rejection): {to_email} ---")
+        html_content = f"""
+        <p>Dear {full_name},</p>
+        <p>Thank you for your interest in joining <strong>Psychotherapy Now</strong>.</p>
+        <p>After carefully reviewing your submitted credentials and application, we regret to inform you that we are unable to approve your clinician account at this time.</p>
+        <p>If you believe there has been a misunderstanding, or if you have additional supporting documentations to provide, please reach out to our clinician support team for assistance.</p>
+        <p>Best regards,<br><strong>The Clinical Review Team</strong><br>Psychotherapy Now</p>
+        """
+        html = get_html_template("Application Update", "Application Update", html_content)
+        msg = build_email_msg(to_email, "Update on Your Clinician Application - Psychotherapy Now", text, html)
+        send_email(msg, "Rejection", to_email)
     except Exception as e:
         print(f"--- SMTP ERROR (Rejection): {str(e)} ---")
         import traceback
@@ -89,47 +160,71 @@ The Clinical Review Team
 def send_welcome_email(to_email: str, full_name: str):
     print(f"--- ATTEMPTING TO SEND WELCOME EMAIL TO: {to_email} ---")
     try:
-        msg = MIMEMultipart()
-        msg['From'] = f"Psychotherapy Now <{SMTP_USER}>"
-        msg['To'] = to_email
-        msg['Subject'] = "Registration Received - Psychotherapy Now"
-
-        body = f"""
-Dear {full_name},
+        text = f"""Dear {full_name},
 
 Thank you for registering with Psychotherapy Now.
-We have received your clinician application. Our team is currently reviewing your credentials.
+
+We have successfully received your clinician application. Our team is currently reviewing your state credentials and license documentation.
+
+You will receive an email notification as soon as your account is approved.
 
 Best regards,
 The Clinical Review Team
-"""
-        msg.attach(MIMEText(body, 'plain'))
+Psychotherapy Now"""
 
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
-            server.set_debuglevel(1)
-            print("Connecting to SMTP Server (Welcome 465 SSL)...")
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            print("Login successful (Welcome), sending message...")
-            server.send_message(msg)
-        print(f"--- EMAIL SENT SUCCESS (Welcome): {to_email} ---")
+        html_content = f"""
+        <p>Dear {full_name},</p>
+        <p>Thank you for registering with <strong>Psychotherapy Now</strong>.</p>
+        <p>We have successfully received your clinician application. Our Clinical Review Team is currently validating your state licensing details and documents.</p>
+        <p>We will email you with an account activation notice as soon as the review process is complete.</p>
+        <p>Best regards,<br><strong>The Clinical Review Team</strong><br>Psychotherapy Now</p>
+        """
+        html = get_html_template("Application Received", "Application Received", html_content)
+        msg = build_email_msg(to_email, "Registration Received - Psychotherapy Now", text, html)
+        send_email(msg, "Welcome", to_email)
     except Exception as e:
         print(f"--- SMTP ERROR (Welcome): {str(e)} ---")
+        import traceback
+        traceback.print_exc()
+
+def send_password_recovery_email(to_email: str, full_name: str, password_hash: str):
+    print(f"--- ATTEMPTING TO SEND PASSWORD RECOVERY EMAIL TO: {to_email} ---")
+    try:
+        text = f"""Dear {full_name},
+
+We received a request to recover your password for your Psychotherapy Now account.
+
+Your current account password is: {password_hash}
+
+If you did not request this, please secure your account immediately or contact our support team.
+
+Best regards,
+The Support Team
+Psychotherapy Now"""
+
+        html_content = f"""
+        <p>Dear {full_name},</p>
+        <p>We received a request to retrieve the password associated with your account on <strong>Psychotherapy Now</strong>.</p>
+        <p>Your current password is:</p>
+        <p style="background-color:#f1f5f9; border:1px dashed #cccccc; padding:18px; text-align:center; font-size:20px; font-family:monospace; font-weight:bold; color:#1a1a2e; letter-spacing:1px; margin:24px 0;">{password_hash}</p>
+        <p>Please log in using this password. If you did not request this information, you can safely ignore this email, or reach out to our support team if you have concerns.</p>
+        <p>Best regards,<br><strong>The Support Team</strong><br>Psychotherapy Now</p>
+        """
+        html = get_html_template("Password Recovery", "Password Recovery", html_content)
+        msg = build_email_msg(to_email, "Password Recovery - Psychotherapy Now", text, html)
+        send_email(msg, "Password Recovery", to_email)
+    except Exception as e:
+        print(f"--- SMTP ERROR (Password Recovery): {str(e)} ---")
         import traceback
         traceback.print_exc()
 
 def send_admin_notification_email(user_email: str, full_name: str, user_id: int, base_url: str):
     print(f"--- ATTEMPTING TO SEND ADMIN NOTIFICATION TO: {SMTP_USER} ---")
     try:
-        msg = MIMEMultipart()
-        msg['From'] = f"Psychotherapy Now <{SMTP_USER}>"
-        msg['To'] = SMTP_USER
-        msg['Subject'] = f"New Clinician Registration: {full_name}"
-
         approve_link = f"{base_url}api/admin/quick-approve/{user_id}"
         dashboard_link = f"{base_url}admin.html"
 
-        body = f"""
-Hello Admin,
+        text = f"""Hello Admin,
 
 A new clinician has registered on the platform and is waiting for approval.
 
@@ -143,14 +238,24 @@ Click the link below to APPROVE this clinician instantly:
 Or view full details in the Admin Dashboard:
 {dashboard_link}
 
-Clinical Platform System
-"""
-        msg.attach(MIMEText(body, 'plain'))
+Clinical Platform System"""
 
-        with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, timeout=15) as server:
-            server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
-        print(f"--- ADMIN NOTIFICATION SENT SUCCESS ---")
+        html_content = f"""
+        <p>Hello Admin,</p>
+        <p>A new clinician has registered on the platform and is waiting for approval.</p>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin: 20px 0;">
+          <strong>Name:</strong> {full_name}<br>
+          <strong>Email:</strong> {user_email}
+        </div>
+        <p style="text-align:center; margin:24px 0;">
+          <a href="{approve_link}" style="background-color:#1a1a2e; color:#ffffff; text-decoration:none; padding:12px 28px; font-weight:bold; display:inline-block;">Approve Instantly</a>
+        </p>
+        <p>Or view full details in the <a href="{dashboard_link}">Admin Dashboard</a>.</p>
+        <p>Clinical Platform System</p>
+        """
+        html = get_html_template("New Registration", "New Clinician Registered", html_content)
+        msg = build_email_msg(SMTP_USER, f"New Clinician Registration: {full_name}", text, html)
+        send_email(msg, "Admin Notification", SMTP_USER)
     except Exception as e:
         print(f"--- SMTP ERROR (Admin Notification): {str(e)} ---")
         import traceback
@@ -201,22 +306,30 @@ def send_payment_invoice_email(to_email: str, full_name: str, amount: float, min
         pdf.output(pdf_filename)
 
         # 2. Send Email
-        msg = MIMEMultipart()
-        msg['From'] = f"Psychotherapy Now <{SMTP_USER}>"
+        msg = MIMEMultipart('alternative')
+        msg['From'] = SMTP_USER
         msg['To'] = to_email
         msg['Subject'] = f"Payment Successful: {int(minutes)} Clinical Minutes Added"
 
-        body = f"""
-Dear {full_name},
+        text = f"""Dear {full_name},
 
 Thank you for your purchase. We have successfully added {int(minutes)} clinical minutes to your account balance.
 
 Your invoice is attached to this email.
 
 Best regards,
-The Clinical Platform Team
-"""
-        msg.attach(MIMEText(body, 'plain'))
+The Clinical Platform Team"""
+
+        html_content = f"""
+        <p>Dear {full_name},</p>
+        <p>Thank you for your purchase. We have successfully added <strong>{int(minutes)} clinical minutes</strong> to your account balance.</p>
+        <p>Your official invoice has been generated and is attached to this email as a PDF.</p>
+        <p>Best regards,<br><strong>The Clinical Platform Team</strong></p>
+        """
+        html = get_html_template("Payment Successful", "Payment Received", html_content)
+
+        msg.attach(MIMEText(text, 'plain'))
+        msg.attach(MIMEText(html, 'html'))
 
         with open(pdf_filename, "rb") as f:
             attach = MIMEApplication(f.read(), _subtype="pdf")
@@ -287,6 +400,11 @@ class SessionConfig(BaseModel):
     pitch: str = "normal"    # low | normal | high
     pitch_shift: float = 0.0  # -5 to +5 (best-effort directive)
 
+class InviteRequest(BaseModel):
+    session_id: str
+    email: str
+    patient_link: str
+
 class SessionState:
     def __init__(self, session_id: str):
         self.session_id = session_id
@@ -304,6 +422,9 @@ class SessionState:
         self.approach = "CBT"
         self.patient_age = "Pending"
         self.patient_sex = "Pending"
+        self.session_mode = "supervised_client"
+        self.patient_profile = {}
+        self.roleplay_profile = {}
         self.start_time: Optional[float] = None
         self.minutes_remaining: float = 100.0
         self.therapist_emails: Set[str] = set()
@@ -357,14 +478,75 @@ def get_tts_voice(session: SessionState) -> str:
     return "shimmer"  # female default
 
 def get_system_prompt(session: SessionState) -> str:
+    mode = getattr(session, "session_mode", "supervised_client")
+    approach = session.approach or "CBT"
+    
     base = (
-        "You are an AI on a Clinical Therapy Training & Supervision Platform. "
-        f"Therapeutic Approach: {session.approach}. "
+        "You are an AI on a Clinical Therapy Training & Supervision Platform called Psychotherapy Now.\n"
+        f"Therapeutic Approach: {approach}.\n"
     )
-    if session.ai_role == "therapist":
-        role_desc = f"Role: ACT AS THE THERAPIST. Patient: {session.patient_age}y/o {session.patient_sex}. Methodology: {session.approach}."
+    
+    role_desc = ""
+    if mode == "supervised_client":
+        # AI interacts with patient, therapist supervises.
+        age = session.patient_age or "25"
+        sex = session.patient_sex or "Female"
+        role_desc = (
+            "Role: ACT AS THE THERAPIST.\n"
+            f"You are conducting a live therapy session with a client ({age}y/o {sex}) using the {approach} approach.\n"
+            "A licensed clinician is supervising this session and may send you private directives or instructions. "
+            "Respond directly to the client as their therapist, keeping your tone professional, empathetic, and therapeutically sound. "
+            "Maintain clinical boundaries."
+        )
+    elif mode == "clinician_as_client":
+        # AI is therapist, clinician is client.
+        role_desc = (
+            "Role: ACT AS THE THERAPIST.\n"
+            f"You are conducting a session where the user is a clinician experiencing the session as a client (for personal exploration or training).\n"
+            f"Engage with them using the {approach} approach. Help them explore their thoughts/feelings from the client's perspective."
+        )
+    elif mode == "ai_therapist_training":
+        # AI is therapist, trainee is roleplaying client.
+        roleplay = getattr(session, "roleplay_profile", {})
+        client_type = roleplay.get("client_type", "Adult client")
+        presenting_problem = roleplay.get("presenting_problem", "anxiety and work stress")
+        training_inst = roleplay.get("training_instructions", "")
+        
+        role_desc = (
+            "Role: ACT AS THE THERAPIST (Training Modality).\n"
+            f"You are acting as the therapist in a simulated training session using the {approach} approach.\n"
+            f"The trainee is role-playing a client described as: {client_type}.\n"
+            f"Presenting Problem of the simulated client: {presenting_problem}.\n"
+        )
+        if training_inst:
+            role_desc += f"Training Focus / Setup: {training_inst}\n"
+    elif mode == "ai_patient_roleplay":
+        # AI is patient, clinician/trainee is therapist.
+        profile = getattr(session, "patient_profile", {})
+        age = profile.get("age", session.patient_age or "30")
+        gender = profile.get("gender", session.patient_sex or "Male")
+        problem = profile.get("presenting_problem", "mild depression and difficulty sleeping")
+        personality = profile.get("personality_style", "guarded and hesitant")
+        diagnosis = profile.get("diagnosis", "Adjustment Disorder")
+        
+        role_desc = (
+            "Role: ACT AS THE PATIENT.\n"
+            f"You must strictly act as a simulated patient in a therapy session. Do NOT act as a therapist.\n"
+            f"Your Patient Profile:\n"
+            f"- Age: {age}\n"
+            f"- Gender: {gender}\n"
+            f"- Presenting Problem: {problem}\n"
+            f"- Personality/Behavior Style: {personality}\n"
+            f"- Diagnosis/Complexity: {diagnosis}\n"
+            "Stay in character at all times. Respond emotionally, share your simulated thoughts and feelings, "
+            "and answer the therapist's questions as a client would. Do not break character."
+        )
     else:
-        role_desc = f"Role: ACT AS THE PATIENT. Act as a {session.patient_age}y/o {session.patient_sex} in a therapy session. Respond emotionally to the therapist's questions."
+        # Fallback
+        if session.ai_role == "therapist":
+            role_desc = f"Role: ACT AS THE THERAPIST. Patient: {session.patient_age}y/o {session.patient_sex}. Methodology: {session.approach}."
+        else:
+            role_desc = f"Role: ACT AS THE PATIENT. Act as a {session.patient_age}y/o {session.patient_sex} in a therapy session. Respond emotionally to the therapist's questions."
 
     # Directives from supervisor (Crucial Priority)
     hidden_parts = []
@@ -387,22 +569,29 @@ def get_system_prompt(session: SessionState) -> str:
 
     hidden = ("\n\n" + "\n".join(hidden_parts)) if hidden_parts else ""
     
-    # Combine everything. We reinforce instructions by putting them at the VERY end
-    # of the system prompt to avoid being overridden by older conversation history.
     return base + role_desc + hidden + "\n\nCRITICAL: Always follow the [SUPERVISOR IMMEDIATE DIRECTIVE] if present, even if it contradicts the previous flow."
 
 async def broadcast_to_session(session: SessionState, message: dict, exclude: Optional[WebSocket] = None):
-    targets = []
-    if session.patient_ws:
-        targets.append(session.patient_ws)
-    targets.extend(list(session.therapist_wss))
-    for ws in targets:
-        if ws == exclude:
-            continue
+    # Send to patient (strip clinical-only private keys)
+    if session.patient_ws and session.patient_ws != exclude:
         try:
-            await ws.send_json(message)
+            pat_msg = dict(message)
+            pat_msg.pop("special_instructions", None)
+            pat_msg.pop("patient_profile", None)
+            pat_msg.pop("roleplay_profile", None)
+            pat_msg.pop("therapist_whisper", None)
+            pat_msg.pop("therapist_text_instruction", None)
+            await session.patient_ws.send_json(pat_msg)
         except:
             pass
+
+    # Send to therapists (keep all keys)
+    for ws in list(session.therapist_wss):
+        if ws != exclude:
+            try:
+                await ws.send_json(message)
+            except:
+                pass
 
 async def session_credit_deductor():
     """Background task to deduct credits every 10 seconds for all active sessions."""
@@ -462,7 +651,7 @@ async def broadcast_binary_to_therapists(session: SessionState, data: bytes):
 async def health():
     return {"status": "ok", "sessions": len(ACTIVE_SESSIONS)}
 
-SECRET_KEY = "my_secret_key"
+SECRET_KEY = os.getenv("SECRET_KEY", "my_secret_key")
 ALGORITHM = "HS256"
 import jwt
 
@@ -484,10 +673,20 @@ async def login(req: Request, db: Session = Depends(get_db)):
     if email == "patient": email = "patient@demo.com"
     if email == "therapist": email = "therapist@demo.com"
     
-    # Check database
-    db_user = db.query(User).filter(User.email == email).first()
+    # Check database (by email or username)
+    db_user = db.query(User).filter(
+        or_(
+            User.email == email,
+            func.lower(User.username) == email
+        )
+    ).first()
     
     if db_user:
+        # Verify password
+        password = data.get("password", "")
+        if db_user.password_hash != password:
+            raise HTTPException(status_code=401, detail="Incorrect password")
+
         if db_user.role == "therapist":
             status = db_user.profile.approval_status if db_user.profile else "pending"
             if status == "rejected":
@@ -511,10 +710,10 @@ async def login(req: Request, db: Session = Depends(get_db)):
         if gender: user_p.gender = str(gender)
         
         # Cache in AUTH_USERS for existing websocket logic
-        AUTH_USERS[email] = user_p
+        AUTH_USERS[db_user.email] = user_p
         
-        print(f"Login successful for {email}")
-        tokens = create_tokens(email, db_user.role)
+        print(f"Login successful for {db_user.email}")
+        tokens = create_tokens(db_user.email, db_user.role)
         return {"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"], "user": user_p.model_dump()}
         
     # Fallback to hardcoded demo users if database is empty/not found
@@ -538,6 +737,12 @@ async def signup(signup_data: SignupRequest, background_tasks: BackgroundTasks, 
     existing = db.query(User).filter(User.email == signup_data.email.lower()).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
+        
+    # Check if username already exists
+    if signup_data.username:
+        username_check = db.query(User).filter(func.lower(User.username) == signup_data.username.lower()).first()
+        if username_check:
+            raise HTTPException(status_code=400, detail="Username already registered")
     
     # Create new user
     new_user = User(
@@ -579,6 +784,17 @@ async def signup(signup_data: SignupRequest, background_tasks: BackgroundTasks, 
     background_tasks.add_task(send_admin_notification_email, new_user.email, new_user.full_name, new_user.id, base_url)
     
     return {"message": "Registration submitted. Pending clinical review."}
+
+@app.post("/api/auth/forgot-password")
+async def forgot_password(request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    data = await request.json()
+    email = data.get("email", "").lower().strip()
+    u = db.query(User).filter(User.email == email).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="Email address not found")
+
+    background_tasks.add_task(send_password_recovery_email, u.email, u.full_name, u.password_hash)
+    return {"message": "Password recovery email sent successfully!"}
 
 # --- ADMIN ENDPOINTS ---
 
@@ -663,6 +879,48 @@ async def admin_update_user(user_id: int, request: Request, db: Session = Depend
         
     db.commit()
     return {"message": "User updated successfully"}
+
+@app.post("/api/session/send-invite")
+async def send_session_invite(invite_req: InviteRequest, background_tasks: BackgroundTasks):
+    email = invite_req.email.lower().strip()
+    session_id = invite_req.session_id.strip()
+    patient_link = invite_req.patient_link.strip()
+    
+    if not email or not session_id or not patient_link:
+        raise HTTPException(status_code=400, detail="Missing required parameters")
+        
+    try:
+        text = f"""Hello,
+        
+You have been invited to join a secure, confidential clinical therapy session on Psychotherapy Now.
+
+Please click the link below to join the session:
+{patient_link}
+
+Session ID: {session_id}
+
+Best regards,
+Psychotherapy Now Team"""
+
+        html_content = f"""
+        <p>Hello,</p>
+        <p>You have been invited to join a secure, confidential clinical therapy session on <strong>Psychotherapy Now</strong>.</p>
+        <p>Please click the button below to join the session:</p>
+        <p style="text-align:center; margin:24px 0;">
+          <a href="{patient_link}" style="background-color:#20bfe9; color:#050914; text-decoration:none; padding:12px 28px; font-weight:bold; display:inline-block; border-radius:6px; box-shadow: 0 4px 10px rgba(32,191,233,0.25);">Join Session</a>
+        </p>
+        <p style="font-size: 12px; color: #888888;">If the button above does not work, copy and paste this link into your browser: <br> {patient_link}</p>
+        <p><strong>Session ID:</strong> {session_id}</p>
+        <p>Best regards,<br>Psychotherapy Now Team</p>
+        """
+        html = get_html_template("Therapy Session Invitation", "Therapy Session Invitation", html_content)
+        msg = build_email_msg(email, f"Invitation to Join Secure Therapy Session (ID: {session_id})", text, html)
+        
+        background_tasks.add_task(send_email, msg, "Session Invite", email)
+        return {"message": "Invite sent successfully."}
+    except Exception as e:
+        print(f"Invite send error: {e}")
+        raise HTTPException(status_code=500, detail="Invite could not be sent. Please try again.")
 
 @app.get("/api/auth/guest")
 async def guest_login():
@@ -768,8 +1026,58 @@ async def dashboard_bootstrap(room_id: Optional[str] = None, authorization: str 
         "session_eligibility": {"can_start": mins > 0 or sub_active}
     }
 
+async def get_paypal_access_token(client_id: str, client_secret: str, live: bool = False) -> str:
+    url = "https://api-m.paypal.com/v1/oauth2/token" if live else "https://api-m.sandbox.paypal.com/v1/oauth2/token"
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            url,
+            auth=(client_id, client_secret),
+            data={"grant_type": "client_credentials"},
+            headers={"Accept": "application/json", "Accept-Language": "en_US"}
+        )
+        if response.status_code == 200:
+            return response.json()["access_token"]
+        else:
+            raise Exception(f"Failed to get PayPal token: {response.text}")
+
+async def verify_paypal_order(order_id: str, client_id: str, client_secret: str, live: bool = False) -> bool:
+    try:
+        token = await get_paypal_access_token(client_id, client_secret, live)
+        url = f"https://api-m.paypal.com/v2/checkout/orders/{order_id}" if live else f"https://api-m.sandbox.paypal.com/v2/checkout/orders/{order_id}"
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                url,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}"
+                }
+            )
+            if response.status_code == 200:
+                order_data = response.json()
+                status = order_data.get("status")
+                if status == "COMPLETED":
+                    purchase_units = order_data.get("purchase_units", [])
+                    if purchase_units:
+                        amount_val = purchase_units[0].get("amount", {}).get("value")
+                        if float(amount_val) >= 24.00:
+                            return True
+                return False
+            else:
+                return False
+    except Exception as e:
+        print(f"PayPal verification error: {e}")
+        return False
+
+class PurchaseRequest(BaseModel):
+    order_id: str
+
 @app.post("/api/account/purchase-minutes")
-async def purchase_minutes(authorization: str = Header(None), db: Session = Depends(get_db)):
+async def purchase_minutes(
+    req: PurchaseRequest,
+    background_tasks: BackgroundTasks,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not authenticated")
     token = authorization.split(" ")[1]
@@ -786,6 +1094,25 @@ async def purchase_minutes(authorization: str = Header(None), db: Session = Depe
     if db_user.role != "therapist":
         raise HTTPException(status_code=403, detail="Only clinicians can purchase clinical minutes.")
         
+    paypal_client_id = os.getenv("PAYPAL_CLIENT_ID")
+    paypal_client_secret = os.getenv("PAYPAL_CLIENT_SECRET")
+    paypal_mode = os.getenv("PAYPAL_MODE", "sandbox")
+    
+    verified = False
+    if not paypal_client_secret:
+        print("[PAYMENT WARNING] PAYPAL_CLIENT_SECRET not set. Bypassing validation (development mode).")
+        verified = True
+    else:
+        verified = await verify_paypal_order(
+            req.order_id,
+            paypal_client_id or "",
+            paypal_client_secret,
+            live=(paypal_mode == "live")
+        )
+        
+    if not verified:
+        raise HTTPException(status_code=400, detail="PayPal payment verification failed.")
+
     wallet = db.query(Wallet).filter(Wallet.user_id == db_user.id).first()
     if wallet:
         wallet.minutes_remaining += 60.0
@@ -1026,6 +1353,9 @@ async def websocket_chat(websocket: WebSocket):
                     "patient_sex": session.patient_sex,
                     "approach": session.approach,
                     "mode": session.mode,
+                    "session_mode": getattr(session, "session_mode", "supervised_client"),
+                    "patient_profile": getattr(session, "patient_profile", {}),
+                    "roleplay_profile": getattr(session, "roleplay_profile", {}),
                     "transcript": session.transcript,
                     "session_active": session.session_active,
                     "patient_online": session.patient_ws is not None,
@@ -1051,7 +1381,16 @@ async def websocket_chat(websocket: WebSocket):
             # 4. CONFIG & CONTROL
             if msg_type == "session_config" and user:
                 session.mode = data.get("mode", session.mode)
-                session.ai_role = data.get("ai_role", session.ai_role)
+                session.session_mode = data.get("session_mode", getattr(session, "session_mode", "supervised_client"))
+                session.patient_profile = data.get("patient_profile", getattr(session, "patient_profile", {}))
+                session.roleplay_profile = data.get("roleplay_profile", getattr(session, "roleplay_profile", {}))
+                
+                # Auto-map ai_role based on session_mode
+                if session.session_mode == "ai_patient_roleplay":
+                    session.ai_role = "patient"
+                else:
+                    session.ai_role = "therapist"
+
                 session.patient_age = data.get("patient_age", session.patient_age)
                 session.patient_sex = data.get("patient_sex", session.patient_sex)
                 session.approach = data.get("approach", session.approach)
@@ -1072,6 +1411,9 @@ async def websocket_chat(websocket: WebSocket):
                     "patient_sex": session.patient_sex,
                     "approach": session.approach,
                     "mode": session.mode,
+                    "session_mode": session.session_mode,
+                    "patient_profile": session.patient_profile,
+                    "roleplay_profile": session.roleplay_profile,
                     "transcript": session.transcript,
                     "session_active": session.session_active,
                     "voice_gender": session.voice_gender,

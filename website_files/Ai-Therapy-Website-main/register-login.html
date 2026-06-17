@@ -316,49 +316,69 @@
     .modal{
       position:fixed;
       inset:0;
-      background:rgba(0,0,0,.68);
+      background:rgba(2, 6, 23, 0.75);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
       display:none;
       align-items:center;
       justify-content:center;
-      padding:16px;
-      z-index:1000;
+      padding:20px;
+      z-index:2000;
     }
     .modal.open{display:flex}
     .modal-card{
-      width:min(860px, 100%);
-      max-height:84vh;
-      overflow:hidden;
+      width:100%;
+      max-width:450px;
       border-radius:28px;
-      border:1px solid #334155;
-      background:#020617;
-      box-shadow:0 24px 60px rgba(0,0,0,.45);
+      border:1px solid rgba(255, 255, 255, 0.08);
+      background:rgba(15, 23, 42, 0.96);
+      box-shadow:0 24px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+      display:flex;
+      flex-direction:column;
+      animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.95) translateY(10px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
     }
     .modal-head{
       display:flex;
       justify-content:space-between;
       align-items:center;
       gap:12px;
-      padding:18px 20px;
-      border-bottom:1px solid #1e293b;
+      padding:24px 28px 12px 28px;
     }
-    .modal-head h3{margin:0;font-size:22px}
+    .modal-head h3{
+      margin:0;
+      font-size:22px;
+      font-weight:700;
+      color:#fff;
+      letter-spacing:-0.01em;
+    }
     .close{
-      background:none;
-      color:#cbd5e1;
-      border:1px solid #475569;
+      background:rgba(255,255,255,0.04);
+      color:#94a3b8;
+      border:1px solid rgba(255,255,255,0.08);
       border-radius:999px;
-      width:36px;height:36px;
+      width:32px;
+      height:32px;
       cursor:pointer;
       font-size:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      line-height:0;
+      transition:all 0.2s ease;
+    }
+    .close:hover{
+      background:rgba(255,255,255,0.1);
+      color:#fff;
+      border-color:rgba(255,255,255,0.15);
     }
     .modal-body{
-      padding:20px;
-      overflow:auto;
-      max-height:calc(84vh - 74px);
-      white-space:pre-line;
+      padding:12px 28px 28px 28px;
       color:var(--muted);
-      line-height:1.8;
-      font-size:14px;
+      line-height:1.6;
     }
     .forgot{
       display:flex;
@@ -629,7 +649,7 @@
               <input type="checkbox" style="width:16px;height:16px;vertical-align:middle;margin-right:8px" />
               Remember me
             </label>
-            <button type="button" class="linkbtn">Forgot password?</button>
+            <button type="button" id="forgotPasswordBtn" class="linkbtn">Forgot password?</button>
           </div>
 
           <button id="loginBtn" type="button" class="btn btn-secondary">Log in</button>
@@ -642,7 +662,29 @@
     </div>
   </div>
 
-
+  <!-- Forgot Password Modal -->
+  <div class="modal" id="forgotPasswordModal">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Reset Password</h3>
+        <button class="close" id="closeForgotModalBtn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin: 0 0 16px 0; font-size: 14px; color: var(--muted); line-height: 1.6; white-space: normal;">
+          Enter your registered email address, and we will send you your account password.
+        </p>
+        <div class="field" style="margin-bottom: 20px;">
+          <label for="forgotEmail" style="display:block; margin-bottom:8px; font-size:14px; font-weight:700; color:#e2e8f0;">Email Address</label>
+          <input id="forgotEmail" type="email" placeholder="Enter your email address" />
+          <div class="error" id="err-forgotEmail" style="display: none; color: var(--bad); font-size: 12px; margin-top: 6px;"></div>
+        </div>
+        <button id="sendForgotBtn" type="button" class="btn btn-primary" style="width:100%;">Send Password</button>
+        <div id="forgotSuccessMsg" style="display: none; margin-top: 16px; padding: 12px; border-radius: 12px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #86efac; font-size: 14px; text-align: center; line-height: 1.5; white-space: normal;">
+          Password sent successfully! Please check your inbox.
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="./assets/js/auth-service.js"></script>
   <script src="./assets/js/router.js"></script>
@@ -678,6 +720,69 @@
         }
       }
     });
+
+    const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+    const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+    const closeForgotModalBtn = document.getElementById('closeForgotModalBtn');
+    const sendForgotBtn = document.getElementById('sendForgotBtn');
+    const forgotEmailInput = document.getElementById('forgotEmail');
+    const errForgotEmail = document.getElementById('err-forgotEmail');
+    const forgotSuccessMsg = document.getElementById('forgotSuccessMsg');
+
+    if (forgotPasswordBtn && forgotPasswordModal) {
+      // Open modal
+      forgotPasswordBtn.addEventListener('click', () => {
+        forgotPasswordModal.classList.add('open');
+        forgotEmailInput.value = '';
+        errForgotEmail.style.display = 'none';
+        forgotSuccessMsg.style.display = 'none';
+      });
+
+      // Close modal
+      closeForgotModalBtn.addEventListener('click', () => {
+        forgotPasswordModal.classList.remove('open');
+      });
+
+      // Close modal on overlay click
+      forgotPasswordModal.addEventListener('click', (e) => {
+        if (e.target === forgotPasswordModal) {
+          forgotPasswordModal.classList.remove('open');
+        }
+      });
+
+      // Submit reset password request
+      sendForgotBtn.addEventListener('click', async () => {
+        const email = forgotEmailInput.value.trim();
+        if (!email) {
+          errForgotEmail.textContent = 'Email address is required.';
+          errForgotEmail.style.display = 'block';
+          return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          errForgotEmail.textContent = 'Please enter a valid email address.';
+          errForgotEmail.style.display = 'block';
+          return;
+        }
+
+        errForgotEmail.style.display = 'none';
+        forgotSuccessMsg.style.display = 'none';
+
+        try {
+          sendForgotBtn.textContent = 'Sending...';
+          sendForgotBtn.disabled = true;
+          const res = await AuthService.forgotPassword(email.toLowerCase());
+          
+          forgotSuccessMsg.textContent = res.message || 'Password recovery email sent successfully!';
+          forgotSuccessMsg.style.display = 'block';
+        } catch (err) {
+          errForgotEmail.textContent = err.message || 'Failed to send recovery email.';
+          errForgotEmail.style.display = 'block';
+        } finally {
+          sendForgotBtn.textContent = 'Send Password';
+          sendForgotBtn.disabled = false;
+        }
+      });
+    }
 
     function setStatus(status){
       statusPill.className = 'pill ' + status;
@@ -771,10 +876,7 @@
         
         AuthService.signup(signupData.email, signupData.password, signupData.full_name, signupData.role, signupData.license_data, state, username, degree, licenseType, licenseNumber)
           .then(() => {
-            setStatus('pending'); 
-            pendingNotice.innerHTML = 'Registration submitted successfully! Your account is now <strong>Pending review</strong> by our clinical team. You will be notified via email once approved.';
-            pendingNotice.style.display = 'block';
-            alert('Signup successful! Your account is pending clinical review.');
+            window.location.href = 'register-login.html?registered=true';
           })
           .catch(err => {
             alert('Signup failed: ' + err.message);
@@ -789,6 +891,16 @@
     });
 
     setStatus('pending');
+
+    // Check if user just registered
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('registered') === 'true') {
+      setStatus('pending');
+      pendingNotice.innerHTML = 'Registration submitted successfully! Your account is now <strong>Pending review</strong> by our clinical team. You will be notified via email once approved.';
+      pendingNotice.style.display = 'block';
+      alert('Signup successful! Your account is pending clinical review.');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     // Auto-redirect if already logged in
     document.addEventListener('DOMContentLoaded', async () => {

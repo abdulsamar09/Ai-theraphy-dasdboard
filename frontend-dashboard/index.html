@@ -1,640 +1,935 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clinical Session Dashboard</title>
+    <title>Psychotherapy Now - Dashboard</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=26">
-    <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=30">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+    
     <!-- Integration Scripts -->
-    <script src="session-service.js"></script>
-    <script src="dashboard-bridge.js"></script>
+    <script src="session-service.js?v=4"></script>
+    <script src="dashboard-bridge.js?v=4"></script>
     <!-- PayPal + Venmo SDK -->
-    <script src="https://www.paypal.com/sdk/js?client-id=test&currency=USD&intent=capture&enable-funding=venmo,paypal"
-        data-sdk-integration-source="button-factory">
-        </script>
+    <script src="https://www.paypal.com/sdk/js?client-id=test&currency=USD&intent=capture&enable-funding=venmo,paypal" data-sdk-integration-source="button-factory"></script>
 </head>
-
 <body>
 
-    <!-- APP CONTAINER -->
-    <div class="app-container">
-        <!-- MOBILE BACKDROP -->
-        <div id="mobileBackdrop" class="mobile-sidebar-backdrop"></div>
+    <!-- MOBILE DRAWER BACKDROP -->
+    <div id="drawerBackdrop" class="mobile-drawer-overlay" onclick="window.dashboard.toggleMobileDrawer(false)"></div>
 
+    <!-- ====================================================
+         1. CLINICIAN / THERAPIST DASHBOARD VIEW
+         ==================================================== -->
+    <div id="clinicianView" class="view-container">
         <!-- TOP NAVIGATION -->
         <header class="top-nav">
-            <!-- MOBILE TOGGLE LEFT -->
-            <button id="mobileLeftToggle" class="mobile-toggle-btn" data-role="therapist" title="Clinical Setup">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button id="clinicianHamburger" class="hamburger-toggle-btn" onclick="window.dashboard.toggleMobileDrawer(true)" aria-label="Open clinical navigation drawer">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
-
             <div class="brand">
-                <div class="logo-mark">AT</div>
-                <div class="logo-text">CLINICAL DASHBOARD</div>
+                <img src="/assets/images/therapy%20now%20logo.png" alt="Psychotherapy Now Logo" class="dashboard-logo">
+                <div class="logo-text">
+                    CLINICAL DASHBOARD
+                    <span>Psychotherapy Now</span>
+                </div>
             </div>
-
             <div class="top-center">
                 <div class="session-timer-pill">
                     <span class="timer-dot"></span>
-                    <span id="sessionTimer">00:00</span>
+                    <span class="session-timer-val">00:00</span>
                     <span class="timer-label">SESSION TIME</span>
                 </div>
-                <!-- PATIENT ID BADGE -->
-                <div id="patientIdBadge" class="session-timer-pill patient-id-pill"
-                    style="margin-left: 12px; border-color: var(--color-primary); display: none;">
-                    <span class="timer-label" style="color: var(--color-primary-light);">ID:</span>
-                    <span id="displaySessionId"
-                        style="font-family: monospace; font-weight: bold; margin-left: 5px;">--------</span>
-                </div>
             </div>
-
             <div class="top-actions">
-                <!-- BILLING -->
-                <div id="billingPill" class="session-timer-pill"
-                    style="margin-right: 12px; border-color: rgba(56, 189, 248, 0.3); display: none; cursor: pointer; transition: all 0.2s;"
-                    onclick="window.dashboard.buyMinutes()" title="Add Minutes">
-                    <span id="creditVal" style="color: var(--color-accent); font-weight: bold;">--</span>
-                    <span class="timer-label">MIN</span>
-                    <span class="add-credit-icon"
-                        style="margin-left: 8px; color: var(--color-accent); font-size: 16px; font-weight: bold;">+</span>
+                <!-- WALLET PILL -->
+                <div id="billingPill" class="session-timer-pill billing-pill" onclick="window.dashboard.buyMinutes()" title="Add Minutes">
+                    <span class="minutes-remaining-val" style="color: var(--teal); font-weight: bold;">--</span>
+                    <span class="timer-label">MIN REMAINING</span>
+                    <span class="add-credit-icon">+</span>
                 </div>
-
-
-                <!-- SLIM PROFILE (initials + logout only) -->
-                <div id="userProfileBar" class="user-profile-bar" style="display: none;">
-                    <button id="logoutBtn" class="logout-link" title="Logout">LOGOUT</button>
-                    <div class="avatar" id="userAvatar">??</div>
+                <!-- SETTINGS TOGGLE (Mobile only) -->
+                <button id="clinicianSettingsBtn" class="hamburger-toggle-btn settings-toggle-btn" onclick="window.dashboard.toggleSettingsDrawer(true)" aria-label="Open session settings" style="display: none;">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+                    </svg>
+                </button>
+                <!-- PROFILE & LOGOUT -->
+                <div class="user-profile-bar">
+                    <button class="logout-link" onclick="window.dashboard.logout()" title="Logout">
+                        LOGOUT
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-left: 4px; opacity: 0.8;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                    <div class="avatar user-avatar-val">??</div>
                 </div>
-                <button id="topLoginBtn" class="btn-primary-action"
-                    style="padding: 8px 16px; width: auto; font-size: 14px; min-width: 80px;">LOGIN</button>
             </div>
-
-            <!-- MOBILE TOGGLE RIGHT -->
-            <button id="mobileRightToggle" class="mobile-toggle-btn" title="Session Controls">
-                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-            </button>
         </header>
 
-        <!-- MAIN WORKSPACE -->
+        <!-- MAIN 3-COLUMN WORKSPACE -->
         <div class="workspace">
-
-            <!-- LEFT SIDEBAR: PATIENT CONTEXT & METRICS (Therapist Only) -->
-            <aside id="leftSidebar" class="sidebar-panel" data-role="therapist" style="display: none;">
-                <div class="panel-header">
+            <!-- LEFT COLUMN: SESSION SETUP -->
+            <aside class="left-col">
+                <div class="column-header">
                     <h3>Session Setup</h3>
-                    <div class="panel-header-actions">
-                        <button class="icon-btn" title="Refresh Data" onclick="location.reload()">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                        </button>
-                        <button class="icon-btn close-btn" onclick="window.dashboard.closeAllSidebars()">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
                 </div>
-
-                <div id="clinicalSetupPanel" class="panel-content custom-scroll" data-role="therapist">
-                    <div class="clinical-card"
-                        style="border-color: var(--color-accent); background: rgba(56, 189, 248, 0.05);">
-                        <label class="section-title" style="color: var(--color-accent);">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg" style="opacity:0.7">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
-                                </path>
-                            </svg>
-                            Available Minutes
-                        </label>
-                        <div style="display: flex; align-items: baseline; gap: 8px;">
-                            <div id="sidebarCreditVal" style="font-size: 32px; font-weight: bold; color: white;">--
+                <div class="column-body custom-scroll">
+                    <!-- selectable mode cards list -->
+                    <div class="mode-card-list">
+                        <!-- Mode 1 -->
+                        <div class="mode-selection-card active" id="mode-card-supervised_client" onclick="window.dashboard.selectSessionMode('supervised_client')">
+                            <div class="mode-number-badge">1</div>
+                            <div class="mode-card-info">
+                                <div class="mode-card-title-row">
+                                    <h4>AI-Assisted Therapy Session</h4>
+                                    <span class="mode-recommend-badge">Recommended</span>
+                                </div>
+                                <div class="mode-card-subtitle">Clinician Supervising AI</div>
+                                <p class="mode-card-desc">Use AI as a therapeutic assistant during an actual client session.</p>
+                                <ul class="mode-card-bullets">
+                                    <li>AI interacts directly with the client</li>
+                                    <li>Clinician supervises and may interrupt anytime</li>
+                                    <li>Clinician may instruct AI to emphasize a therapeutic approach</li>
+                                </ul>
                             </div>
-                            <div style="font-size: 14px; color: var(--color-accent); font-weight: 600;">MINUTES</div>
                         </div>
-                        <div style="font-size: 11px; color: var(--text-dim); margin-top: 5px;">Remaining for clinical
-                            use</div>
-                        <button id="buyMinutesBtnSidebar" class="btn-primary-action"
-                            onclick="window.dashboard.buyMinutes()"
-                            style="margin-top: 15px; width: 100%; background: var(--color-accent); color: #000; font-size: 12px; height: 36px; font-weight: bold; letter-spacing: 1px;">BUY
-                            MINUTES</button>
-                    </div>
-
-                    <div class="clinical-card" style="display: none;">
-                        <label class="section-title">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg" style="opacity:0.7">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
-                                </path>
-                            </svg>
-                            Session Details
-                        </label>
-                        <div class="form-group">
-                            <label style="color: var(--color-primary-light);">Current Session ID</label>
-                            <div id="sessionIdLabel"
-                                style="font-family: monospace; font-size: 18px; font-weight: bold; color: white; background: rgba(0,0,0,0.4); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; letter-spacing: 2px;">
-                                --------</div>
-                        </div>
-                    </div>
-
-
-                    <div class="clinical-card"
-                        style="border-color: var(--color-primary-light); background: rgba(44, 222, 128, 0.05);">
-                        <label
-                            style="color: var(--color-primary-light); font-size: 11px; margin-bottom: 10px; display: block; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase;">How
-                            It Works</label>
-                        <ol
-                            style="color: var(--text-dim); font-size: 12px; padding-left: 15px; margin-bottom: 15px; margin-top: 0; line-height: 1.5;">
-                            <li>Click <b>'Generate Patient Link'</b></li>
-                            <li>Copy the link and send to your patient (email, WhatsApp, text, etc.)</li>
-                            <li>Patient opens link and automatically joins your session</li>
-                        </ol>
-                        <button id="sharePatientLinkBtn" class="btn-primary-action"
-                            onclick="window.dashboard.openInviteModal()" style="font-size: 15px; width: 100%;">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1">
-                                </path>
-                            </svg>
-                            GENERATE PATIENT LINK
-                        </button>
-                    </div>
-
-                    <div class="clinical-card">
-                        <h4 class="section-title">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                xmlns="http://www.w3.org/2000/svg" style="opacity:0.7">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Session Activity Log
-                        </h4>
-                        <div id="consultationLog" class="custom-scroll"
-                            style="height: 180px; background: rgba(0,0,0,0.5); padding: 16px; border-radius: var(--radius-sm); font-size: 15px; color: var(--text-dim); border: 1px solid var(--border-color); overflow-y: auto; line-height: 1.6; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);">
-                            <div
-                                style="display:flex; flex-direction:column; align-items:center; opacity:0.6; margin-top:20px;">
-                                <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg" style="margin-bottom:8px;">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                Waiting for clinician interaction...
+                        <!-- Mode 2 -->
+                        <div class="mode-selection-card" id="mode-card-clinician_as_client" onclick="window.dashboard.selectSessionMode('clinician_as_client')">
+                            <div class="mode-number-badge">2</div>
+                            <div class="mode-card-info">
+                                <h4>AI as Therapist</h4>
+                                <div class="mode-card-subtitle">Clinician as Client</div>
+                                <p class="mode-card-desc">Personal exploration, professional development, or experiencing a therapy approach from the client perspective.</p>
                             </div>
+                        </div>
+                        <!-- Mode 3 -->
+                        <div class="mode-selection-card" id="mode-card-ai_therapist_training" onclick="window.dashboard.selectSessionMode('ai_therapist_training')">
+                            <div class="mode-number-badge">3</div>
+                            <div class="mode-card-info">
+                                <h4>AI as Therapist</h4>
+                                <div class="mode-card-subtitle">Training Modality</div>
+                                <p class="mode-card-desc">You or the trainee role-play a specific client while AI acts as therapist.</p>
+                            </div>
+                        </div>
+                        <!-- Mode 4 -->
+                        <div class="mode-selection-card" id="mode-card-ai_patient_roleplay" onclick="window.dashboard.selectSessionMode('ai_patient_roleplay')">
+                            <div class="mode-number-badge">4</div>
+                            <div class="mode-card-info">
+                                <h4>AI as Patient</h4>
+                                <div class="mode-card-subtitle">Clinician/Trainee as Therapist</div>
+                                <p class="mode-card-desc">Practice therapeutic skills with AI in the patient role.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- dynamic mode-specific setup form -->
+                    <div class="glass-card" style="margin-top: 10px;">
+                        <h4 class="section-title" id="modeSetupTitle" style="color: var(--teal); margin-bottom: 16px;">SETUP FOR AI-ASSISTED THERAPY SESSION</h4>
+                        
+                        <!-- Form fields containers toggle dynamically -->
+                        <div id="fields-supervised_client" class="mode-fields-group">
+                            <div class="form-group">
+                                <label for="approach-supervised_client">Therapeutic Approach</label>
+                                <select id="approach-supervised_client" onchange="window.dashboard.updateModeSettings()">
+                                    <option value="CBT (Cognitive Behavioral Therapy)">CBT (Cognitive Behavioral Therapy)</option>
+                                    <option value="DBT (Dialectical Behavior Therapy)">DBT (Dialectical Behavior Therapy)</option>
+                                    <option value="NLP (Neuro-Linguistic Programming)">NLP (Neuro-Linguistic Programming)</option>
+                                    <option value="Psychodynamic Therapy">Psychodynamic Therapy</option>
+                                    <option value="ACT (Acceptance and Commitment Therapy)">ACT (Acceptance and Commitment Therapy)</option>
+                                </select>
+                            </div>
+                            <!-- Patient Invite Card/Section -->
+                            <div class="patient-invite-card glass-card" style="margin-top: 16px; border-color: rgba(32, 191, 233, 0.2); padding: 16px;">
+                                <div class="invite-header-group" style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <svg width="18" height="18" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                        </svg>
+                                        <h4 style="color: var(--cyan); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin: 0;">Patient Invite</h4>
+                                    </div>
+                                    <div style="font-size: 11px; color: var(--muted); line-height: 1.4;">
+                                        Choose either of the 2 options below to invite the patient:
+                                    </div>
+                                </div>
+
+                                <div class="link-input-wrapper">
+                                    <label style="font-size: 10px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; color: var(--muted);">Option 1: Generate Session Link</label>
+                                    <div class="input-with-icon-container" style="position: relative;">
+                                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted2); display: flex;">
+                                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                            </svg>
+                                        </span>
+                                        <input type="text" id="patientLinkInput" readonly placeholder="Click Generate Link to create a secure patient invite." style="padding-left: 36px; font-size: 12px;">
+                                    </div>
+                                </div>
+                                <button type="button" id="invite-gen-btn" class="btn-outline-teal" onclick="window.dashboard.generateInviteLink()" style="min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 16px;">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                    Generate Link
+                                </button>
+                                <button type="button" id="invite-copy-btn" class="btn-outline" onclick="window.dashboard.copyInviteLink()" style="min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 16px;">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                                    Copy
+                                </button>
+
+                                <div class="email-input-wrapper">
+                                    <label style="font-size: 10px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; color: var(--muted);">Option 2: Send to Patient Email</label>
+                                    <div class="input-with-icon-container" style="position: relative;">
+                                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted2); display: flex;">
+                                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                            </svg>
+                                        </span>
+                                        <input type="email" id="patientInviteEmailInput" placeholder="Enter patient email address" style="padding-left: 36px; font-size: 12px;">
+                                    </div>
+                                </div>
+                                <button type="button" id="invite-send-btn" class="btn-outline-teal" onclick="window.dashboard.sendPatientInviteEmail()" style="min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 16px;">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 19v-8.93a2 2 0 01.89-1.664l8-5.333a2 2 0 012.22 0l8 5.333A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5m0 0l-2.25-1.5a2 2 0 00-2.22 0l-2.25 1.5m4.5 0v-4"/></svg>
+                                    Send Invite
+                                </button>
+
+                                <div class="invite-info-text" style="font-size: 10px; color: var(--muted); line-height: 1.4;">
+                                    The patient will receive a secure link to join this session.
+                                </div>
+                                <div id="inviteFeedbackText" style="font-size: 11px; display: none; align-items: center; gap: 6px; font-weight: 600;"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Session ID</label>
+                                <div class="form-input-row">
+                                    <input type="text" id="clinicianSessionIdDisplay" readonly placeholder="--------">
+                                    <button class="btn-outline" onclick="window.dashboard.copySessionId()" style="padding: 0 12px; min-height: 40px; font-size: 11px;">COPY</button>
+                                </div>
+                            </div>
+                            <button class="btn-teal start-session-trigger" onclick="window.dashboard.startClinicalSession()" style="width: 100%; margin-top: 10px;">START SUPERVISED SESSION</button>
+                        </div>
+
+                        <div id="fields-clinician_as_client" class="mode-fields-group" style="display: none;">
+                            <div class="form-group">
+                                <label for="approach-clinician_as_client">Therapeutic Approach</label>
+                                <select id="approach-clinician_as_client" onchange="window.dashboard.updateModeSettings()">
+                                    <option value="CBT (Cognitive Behavioral Therapy)">CBT (Cognitive Behavioral Therapy)</option>
+                                    <option value="DBT (Dialectical Behavior Therapy)">DBT (Dialectical Behavior Therapy)</option>
+                                    <option value="NLP (Neuro-Linguistic Programming)">NLP (Neuro-Linguistic Programming)</option>
+                                    <option value="Psychodynamic Therapy">Psychodynamic Therapy</option>
+                                    <option value="ACT (Acceptance and Commitment Therapy)">ACT (Acceptance and Commitment Therapy)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Special Instructions</label>
+                                <textarea id="inst-clinician_as_client" placeholder="Clinician may instruct AI to emphasize a particular therapeutic approach..." onchange="window.dashboard.updateModeSettings()"></textarea>
+                            </div>
+                            <button class="btn-teal start-session-trigger" onclick="window.dashboard.startClinicalSession()" style="width: 100%; margin-top: 10px;">START SESSION</button>
+                        </div>
+
+                        <div id="fields-ai_therapist_training" class="mode-fields-group" style="display: none;">
+                            <div class="form-group">
+                                <label for="approach-ai_therapist_training">Therapeutic Approach</label>
+                                <select id="approach-ai_therapist_training" onchange="window.dashboard.updateModeSettings()">
+                                    <option value="CBT (Cognitive Behavioral Therapy)">CBT (Cognitive Behavioral Therapy)</option>
+                                    <option value="DBT (Dialectical Behavior Therapy)">DBT (Dialectical Behavior Therapy)</option>
+                                    <option value="NLP (Neuro-Linguistic Programming)">NLP (Neuro-Linguistic Programming)</option>
+                                    <option value="Psychodynamic Therapy">Psychodynamic Therapy</option>
+                                    <option value="ACT (Acceptance and Commitment Therapy)">ACT (Acceptance and Commitment Therapy)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="roleplay-client_type">Role-play Client Type</label>
+                                <input type="text" id="roleplay-client_type" placeholder="e.g., Guarded adolescent, cooperative adult" onchange="window.dashboard.updateModeSettings()">
+                            </div>
+                            <div class="form-group">
+                                <label for="roleplay-problem">Presenting Problem</label>
+                                <input type="text" id="roleplay-problem" placeholder="e.g., Social anxiety, mild OCD" onchange="window.dashboard.updateModeSettings()">
+                            </div>
+                            <div class="form-group">
+                                <label>Training Instructions</label>
+                                <textarea id="inst-ai_therapist_training" placeholder="Instructions/focus for training session..." onchange="window.dashboard.updateModeSettings()"></textarea>
+                            </div>
+                            <button class="btn-teal start-session-trigger" onclick="window.dashboard.startClinicalSession()" style="width: 100%; margin-top: 10px;">START TRAINING SESSION</button>
+                        </div>
+
+                        <div id="fields-ai_patient_roleplay" class="mode-fields-group" style="display: none;">
+                            <div class="form-group">
+                                <label for="ai_patient-age">AI Patient Age</label>
+                                <input type="number" id="ai_patient-age" value="30" min="10" max="100" onchange="window.dashboard.updateModeSettings()">
+                            </div>
+                            <div class="form-group">
+                                <label for="ai_patient-gender">AI Patient Gender</label>
+                                <select id="ai_patient-gender" onchange="window.dashboard.updateModeSettings()">
+                                    <option value="Female">Female</option>
+                                    <option value="Male">Male</option>
+                                    <option value="Non-Binary">Non-Binary</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="ai_patient-problem">Presenting Problem</label>
+                                <input type="text" id="ai_patient-problem" placeholder="e.g., Panic attacks, marital conflict" onchange="window.dashboard.updateModeSettings()">
+                            </div>
+                            <div class="form-group">
+                                <label for="ai_patient-personality">Personality Style</label>
+                                <input type="text" id="ai_patient-personality" placeholder="e.g., Avoidant, passive-aggressive" onchange="window.dashboard.updateModeSettings()">
+                            </div>
+                            <div class="form-group">
+                                <label for="ai_patient-diagnosis">Diagnosis / Complexity</label>
+                                <input type="text" id="ai_patient-diagnosis" placeholder="e.g., GAD, treatment-resistant" onchange="window.dashboard.updateModeSettings()">
+                            </div>
+                            <div class="form-group">
+                                <label>Special Instructions</label>
+                                <textarea id="inst-ai_patient_roleplay" placeholder="Direct instructions for the AI patient role..." onchange="window.dashboard.updateModeSettings()"></textarea>
+                            </div>
+                            <button class="btn-teal start-session-trigger" onclick="window.dashboard.startClinicalSession()" style="width: 100%; margin-top: 10px;">START PRACTICE SESSION</button>
                         </div>
                     </div>
                 </div>
             </aside>
 
-            <!-- CENTER: INTERACTION STAGE -->
-            <main class="stage">
-                <!-- TRAINING BANNER -->
-                <div id="trainingBanner" class="supervision-banner"
-                    style="display: none; background: var(--color-secondary);">
-                    🎓 TRAINING MODE ACTIVE: CLINICAL SUPERVISION IN PROGRESS
-                </div>
-
-                <!-- MODE TABS -->
-                <div id="modeTabs" class="mode-tabs" data-role="therapist" style="display: none;">
-                    <button class="tab-btn active" data-mode="normal">Normal Session</button>
-                    <button class="tab-btn" data-mode="training">Training Mode</button>
-                </div>
-
-                <!-- TRAINING JOIN (Only shown when not in active patient session) -->
-                <div id="trainingJoinPanel" class="mode-tabs"
-                    style="display: none; padding-top: 0; margin-top: -15px; gap: 10px;">
-                    <input type="text" id="targetSessionInput" placeholder="Target Session ID"
-                        style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: white; padding: 10px 15px; border-radius: 100px; font-size: 14px; outline: none; width: 180px;">
-                    <button id="joinConfirmBtn" class="tab-btn" style="background: var(--color-primary);">Join
-                        Session</button>
-                </div>
-
-
-
-                <div class="stage-container">
-                    <div class="visualizer-container">
-                        <!-- 1. AI VISUALIZER ORB -->
-                        <div class="avatar-ring">
-                            <div class="ring-ripple"></div>
-                            <div class="ring-ripple delay-1"></div>
-                            <div class="avatar-core">AI</div>
-                        </div>
-
-                        <!-- 3. SESSION STATUS INDICATOR -->
-                        <div class="status-indicator" style="margin: 10px auto 0 auto;">
-                            <div id="aiStatus" class="status-text">
-                                <span class="status-dot active"></span>
-                                Ready to begin
-                            </div>
-                        </div>
-
-                        <!-- 4. CENTRAL CONTROLS (Unified Card) -->
-                        <div class="clinical-card"
-                            style="width: 100%; max-width: 850px; margin-top: 10px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.4); z-index: 30; padding: 25px; display: flex; flex-direction: column;">
-                            <h4 class="section-title"
-                                style="color: var(--text-main); text-align: center; justify-content: center; display: flex; margin-bottom: 20px;">
-                                <div style="display: flex; align-items: center; gap: 6px;">
-                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                        xmlns="http://www.w3.org/2000/svg" style="opacity:0.7">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
-                                        </path>
-                                    </svg>
-                                    Session Controls
-                                </div>
-                            </h4>
-
-                            <div class="mic-controls">
-                                <div class="mic-status-row">
-                                    <div class="status-dot" id="micStateIcon" style="background: var(--color-danger);">
-                                    </div>
-                                    <span id="micStatusLabel"
-                                        style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-main);">IDLE:
-                                        NOT LISTENING</span>
-                                </div>
-
-                                <div data-role="therapist"
-                                    style="display: none; margin-top: 15px; margin-bottom: 5px; font-size: 12px; color: var(--color-primary-light); background: rgba(56, 189, 248, 0.1); padding: 6px 10px; border-radius: 4px; border-left: 3px solid var(--color-primary-light);">
-                                    <strong>Live Interaction:</strong> Use this mic to speak directly to the AI/Patient.
-                                    Everyone will hear you.
-                                </div>
-                                <div class="grid-buttons" style="margin-top: 5px;">
-                                    <button class="ctrl-btn mic-trigger" id="startPatientBtn">
-                                        <svg width="16" height="16" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
-                                            style="margin-right: 6px; color:var(--color-primary-light);">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z">
-                                            </path>
-                                        </svg>
-                                        LIVE SESSION MIC
-                                    </button>
-                                    <button class="ctrl-btn mic-stop" id="stopPatientBtn" disabled
-                                        style="width: 80px; flex-shrink: 0;">STOP</button>
-                                </div>
-
-
-                                <!-- WHISPER INSTRUCTION (Moved from sidebar) -->
-                                <!-- UNIFIED AI GUIDANCE SYSTEM -->
-                                <div id="therapistTextPanel" data-role="therapist" style="display: none; width: 100%;">
-                                    <div class="guidance-grid" style="display: flex; flex-direction: column;">
-                                        <div id="therapistMics" class="guidance-card" style="width: 100%;">
-                                            <div class="guidance-header"
-                                                style="justify-content: center; margin-bottom: 15px;">
-                                                <svg width="16" height="16" fill="none" stroke="currentColor"
-                                                    viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        stroke-width="2"
-                                                        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                                                </svg>
-                                                INSTRUCTIONS TO AI
-                                            </div>
-
-                                            <div
-                                                style="flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 15px;">
-                                                <div class="grid-buttons">
-                                                    <button class="ctrl-btn mic-trigger" id="startTherapistBtn"
-                                                        style="flex: 1; padding: 15px;">
-                                                        <svg width="18" height="18" fill="none" stroke="currentColor"
-                                                            viewBox="0 0 24 24" style="margin-right: 8px;">
-                                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                                stroke-width="2"
-                                                                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                                                        </svg>
-                                                        MIC WHISPER — SPECIAL INSTRUCTIONS
-                                                    </button>
-                                                    <button class="ctrl-btn mic-stop" id="stopTherapistBtn" disabled
-                                                        style="width: 100px;">STOP</button>
-                                                </div>
-                                                <div class="guidance-hint"
-                                                    style="text-align: center; line-height: 1.5; color: var(--color-primary-light); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: bold; margin-top: 5px;">
-                                                    TALK DIRECTLY TO AI. INSTANTLY GUIDE AI BEHAVIOR DURING
-                                                    SESSION.<br>THE PATIENT WILL NOT HEAR YOU. AI WILL INCORPORATE YOUR
-                                                    ADDITIONAL INSTRUCTIONS.
-                                                </div>
-
-                                                <!-- CLINICAL DIRECTIVES (MOVED HERE) -->
-                                                <div id="clinicalInstructionsPanel"
-                                                    style="margin-top: 25px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
-                                                    <h4 class="section-title" style="margin-bottom: 15px;">Clinical
-                                                        Directives</h4>
-                                                    <div style="flex: 1; min-width: 100%;">
-                                                        <label
-                                                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                                            <span
-                                                                style="font-size: 13px; color: var(--text-dim);">Special
-                                                                Instructions to Session</span>
-                                                        </label>
-                                                        <textarea id="specialInstructions"
-                                                            style="width: 100%; height: 100px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); color: white; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; resize: vertical;"
-                                                            placeholder="e.g. Emphasize an NLP approach. Focus on reframing and pattern interrupts..."></textarea>
-                                                        <div
-                                                            style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 8px;">
-                                                            <div style="font-size: 12px; opacity: 0.7; max-width: 70%;">
-                                                                Type instructions here or use Mic Whisper above.</div>
-                                                            <button class="btn-primary-action"
-                                                                style="padding: 6px 20px; font-size: 12px; background: var(--color-primary); color: #000; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; letter-spacing: 0.5px;"
-                                                                onclick="if(window.dashboard) { window.dashboard.wsSend({type: 'session_config', special_instructions: document.getElementById('specialInstructions').value}); window.dashboard.toast('Instructions Sent!'); }">SEND
-                                                                WHISPER INSTRUCTIONS</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- CLINICAL ACTIONS (Integrated inside card) -->
-                                <div id="clinicalStartOverlay"
-                                    style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
-                                    <!-- Patient Join: Start Session Button -->
-                                    <div data-role="patient" id="patientSessionStartBtn"
-                                        style="display: none; width: 100%; flex-direction: column; align-items: center;">
-                                        <button id="startTherapyBtn" class="btn-primary-action"
-                                            style="padding: 16px; font-size: 16px; width: 100%; letter-spacing: 2px;">START
-                                            CLINICAL SESSION</button>
-                                        <div id="intakeConfirmedHint"
-                                            style="margin-top: 10px; font-size: 11px; color: var(--color-primary-light); opacity: 0.8; text-align: center;">
-                                            Clinical profile verified.</div>
-                                    </div>
-
-                                    <!-- Therapist Join: Stage Join Session -->
-                                    <div id="stageJoinGroup" data-role="therapist"
-                                        style="display: none; flex-direction: column; align-items: center; gap: 12px; width: 100%;">
-                                        <label
-                                            style="color: var(--color-primary-light); display: block; font-size: 13px;">Supervision
-                                            Mode</label>
-                                        <input type="text" id="stageSessionInput" placeholder="SESSION ID"
-                                            style="text-align: center; text-transform: uppercase; font-family: monospace; font-size: 16px; letter-spacing: 2px; padding: 12px; width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: white;">
-                                        <button id="stageJoinBtn" class="btn-primary-action"
-                                            style="padding: 12px; font-size: 14px; width: 100%;">JOIN SESSION</button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 5. TRANSCRIPT PREVIEW (Cohesive inside box) -->
-                            <div class="transcript-preview"
-                                style="margin-top: 20px; width: 100%; border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2);">
-                                <div id="patientTranscript" class="transcript-line opacity-50">Patient: (Waiting for
-                                    input...)</div>
-                                <div id="aiTranscript" class="transcript-line active">AI: (Ready to assist...)</div>
-                            </div>
-
-                            <!-- 5. AUDIO WAVE ANIMATION -->
-                            <div class="audio-wave" id="audioWave"
-                                style="opacity: 0; position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);">
-                                <span></span><span></span><span></span><span></span><span></span>
-                                <span></span><span></span><span></span><span></span><span></span>
-                            </div>
+            <!-- CENTER COLUMN: WORKSPACE STAGE -->
+            <main class="center-col">
+                <!-- AI ORB VISUALIZER -->
+                <div class="ai-orb-container">
+                    <div class="avatar-ring" id="clinicianOrb">
+                        <div class="ring-ripple"></div>
+                        <div class="ring-ripple delay-1"></div>
+                        <div class="avatar-core">AI</div>
+                    </div>
+                    <div class="status-indicator">
+                        <div class="status-text ai-status-text">
+                            <span class="status-dot"></span>
+                            Ready to begin
                         </div>
                     </div>
-            </main>
+                    <!-- Audio visualization wave -->
+                    <div class="audio-wave clinician-audio-wave">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
 
-            <!-- RIGHT SIDEBAR: CONTROLS -->
-            <aside id="rightSidebar" class="sidebar-panel right">
-                <div class="panel-header">
-                    <h3>Session Controls</h3>
-                    <button class="icon-btn close-btn" onclick="window.dashboard.closeAllSidebars()">
-                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                <!-- LIVE SESSION WORKSPACE CARD -->
+                <div class="live-session-workspace-card">
+                    <div class="workspace-header">
+                        <div class="workspace-header-pulse"></div>
+                        <span>Live Session Workspace</span>
+                    </div>
+                    <div class="workspace-body custom-scroll" id="clinicianWorkspaceBody">
+                        <!-- Empty State -->
+                        <div class="workspace-empty-state" id="clinicianWorkspaceEmpty">
+                            <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <p>No active workspace messages. Start or join session to begin transcription.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MAIN WORKSPACE CONTROL BUTTONS -->
+                <div class="workspace-actions three-col">
+                    <button class="action-btn-rich" id="speakToClientBtn" onclick="window.dashboard.toggleSessionMic('patient')" aria-label="Speak to client or AI">
+                        <div class="action-btn-icon teal-icon">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                        </div>
+                        <div class="action-btn-text">
+                            <span class="action-btn-label">SPEAK TO CLIENT / AI</span>
+                            <span class="action-btn-sub">Open mic to session</span>
+                        </div>
+                    </button>
+                    <button class="action-btn-rich" id="whisperBtn" onclick="window.dashboard.toggleSessionMic('whisper')" aria-label="Speak private directive to AI">
+                        <div class="action-btn-icon purple-icon">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11m0 0V5a3 3 0 00-3-3m0 3v2M12 5V2m6 9v2M15 11c0 1.25-.25 2.441-.702 3.528M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div class="action-btn-text">
+                            <span class="action-btn-label">PRIVATE INSTRUCTION TO AI</span>
+                            <span class="action-btn-sub">Whisper instruction</span>
+                        </div>
+                    </button>
+                    <button class="action-btn-rich danger-action" id="clinicianStopBtn" onclick="window.dashboard.endSession()">
+                        <div class="action-btn-icon red-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                            </svg>
+                        </div>
+                        <div class="action-btn-text">
+                            <span class="action-btn-label">STOP SESSION</span>
+                            <span class="action-btn-sub">End session</span>
+                        </div>
                     </button>
                 </div>
 
-                <div class="panel-content custom-scroll">
+                <!-- CLINICAL DIRECTIVES INPUT -->
+                <div class="clinical-directives-card" style="margin-top: 16px;">
+                    <div class="clinical-directives-title">CLINICAL DIRECTIVES (Private to AI)</div>
+                    <div class="clinical-directives-row">
+                        <textarea id="clinicianTextDirectiveInput" placeholder="Provide private guidance or set therapeutic focus for AI..." onkeydown="window.dashboard.handleDirectiveKey(event)"></textarea>
+                        <button onclick="window.dashboard.sendClinicalDirective()" aria-label="Send clinical directive">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="directives-hint">Press Enter to send</div>
+                </div>
+            </main>
 
-
-
-
-                    <!-- AI VOICE CONFIGURATION (Both Patient and Therapist) -->
-                    <div id="voiceConfigPanel" class="clinical-card">
-                        <h4 class="section-title"
-                            style="cursor: pointer; width: 100%; display: flex; justify-content: space-between;"
-                            onclick="if(window.innerWidth<=850) { const p=this.parentElement; const o=p.classList.contains('acc-expanded'); document.querySelectorAll('#rightSidebar .clinical-card').forEach(c=>c.classList.remove('acc-expanded')); if(!o) p.classList.add('acc-expanded'); }">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg" style="opacity:0.7">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
-                                    </path>
-                                </svg>
-                                AI Voice Settings
-                            </div>
-                            <span class="accordion-indicator">▼</span>
+            <!-- RIGHT COLUMN: SESSION CONTROLS -->
+            <aside class="right-col">
+                <div class="column-header">
+                    <h3>Session Controls</h3>
+                </div>
+                <div class="column-body custom-scroll">
+                    <!-- AI Voice Settings -->
+                    <div class="glass-card">
+                        <h4 class="section-title">
+                            <svg width="14" height="14" fill="none" stroke="var(--teal)" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                            AI VOICE SETTINGS
                         </h4>
-                        <div class="setting-row">
+                        
+                        <div class="form-group" style="margin-top: 12px;">
                             <label>Voice Gender</label>
-                            <div class="segment-control" id="genderSelect">
-                                <button class="segment-btn active" data-val="female">Female</button>
-                                <button class="segment-btn" data-val="male">Male</button>
+                            <div class="segment-container" id="clinicianVoiceGender">
+                                <button class="segment-btn active" onclick="window.dashboard.changeVoiceSetting('gender', 'female')">Female</button>
+                                <button class="segment-btn" onclick="window.dashboard.changeVoiceSetting('gender', 'male')">Male</button>
+                                <button class="segment-btn" onclick="window.dashboard.changeVoiceSetting('gender', 'neutral')">Neutral</button>
                             </div>
                         </div>
-                        <div class="setting-row">
-                            <label>Talking Speed</label>
-                            <div class="segment-control" id="tempoSelect">
-                                <button class="segment-btn" data-val="slow">Slow</button>
-                                <button class="segment-btn active" data-val="normal">Normal</button>
-                                <button class="segment-btn" data-val="fast">Fast</button>
-                            </div>
-                        </div>
-                        <div class="setting-row">
-                            <label>Vocal Pitch</label>
-                            <div class="segment-control" id="pitchSelect">
-                                <button class="segment-btn" data-val="low">Low</button>
-                                <button class="segment-btn active" data-val="normal">Normal</button>
-                                <button class="segment-btn" data-val="high">High</button>
-                            </div>
-                        </div>
-                        <div class="divider"></div>
-                        <div
-                            style="font-size: 15px; color: var(--color-primary-light); margin-bottom: 12px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
-                            Adjust AI Voice Live</div>
-                        <div class="grid-buttons full-grid">
-                            <button id="adjSlower" class="ctrl-btn" title="Decrease Speed">SLOWER (−)</button>
-                            <button id="adjFaster" class="ctrl-btn" title="Increase Speed">FASTER (+)</button>
-                            <button id="adjLower" class="ctrl-btn" title="Lower Pitch">LOWER ▾</button>
-                            <button id="adjHigher" class="ctrl-btn" title="Higher Pitch">HIGHER ▴</button>
-                        </div>
-                        <p class="input-hint" style="margin-top: 10px; font-size: 14px; opacity: 0.7;">Instantly adjust
-                            the AI's voice tone and speed during the session.</p>
-                    </div>
 
-                    <!-- SAFETY / MAIN CONTROLS -->
-                    <div class="clinical-card"
-                        style="border-top: 2px solid var(--color-danger); background: linear-gradient(180deg, rgba(244, 63, 94, 0.05) 0%, rgba(30, 41, 59, 0.5) 100%);">
-                        <h4 class="section-title"
-                            style="color: var(--color-danger); cursor: pointer; width: 100%; display: flex; justify-content: space-between;"
-                            onclick="if(window.innerWidth<=850) { const p=this.parentElement; const o=p.classList.contains('acc-expanded'); document.querySelectorAll('#rightSidebar .clinical-card').forEach(c=>c.classList.remove('acc-expanded')); if(!o) p.classList.add('acc-expanded'); }">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                    xmlns="http://www.w3.org/2000/svg" style="opacity:0.8">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
-                                    </path>
-                                </svg>
-                                Clinical Session Status
-                            </div>
-                            <span class="accordion-indicator">▼</span>
-                        </h4>
-                        <!-- Patient full details card -->
-                        <div id="patientInfoCard"
-                            style="display: none; background: rgba(0,0,0,0.4); padding: 20px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-                            <div
-                                style="font-size: 14px; color: var(--text-muted); font-weight: 800; margin-bottom: 12px; text-transform: uppercase;">
-                                Identity Verified</div>
-                            <div id="infoCardName" style="font-size: 18px; font-weight: 700; color: #fff;">--</div>
-                            <div id="infoCardMeta" style="font-size: 15px; color: var(--text-dim); margin-top: 4px;">--
-                            </div>
-                            <div id="infoCardRole"
-                                style="font-size: 14px; background: var(--color-primary); color: white; display: inline-block; padding: 4px 10px; border-radius: 6px; margin-top: 12px; font-weight: 800; letter-spacing: 0.5px;">
-                                --</div>
-                        </div>
-                        <!-- Therapist supervised patient card (shows after join) -->
-                        <div id="supervisedPatientCard"
-                            style="display: none; background: rgba(0,0,0,0.4); padding: 20px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);">
-                            <div id="svdHeader"
-                                style="font-size: 14px; color: #c084fc; font-weight: 800; margin-bottom: 12px; text-transform: uppercase;">
-                                Supervision Active</div>
-                            <div id="svdPatientName" style="font-size: 18px; font-weight: 700; color: #fff;">--</div>
-                            <div id="svdPatientMeta" style="font-size: 15px; color: var(--text-dim); margin-top: 4px;">
-                                Age: -- | Sex: --</div>
-                            <div id="svdPatientSession"
-                                style="font-size: 15px; font-family: monospace; color: var(--color-accent); margin-top: 12px; background: rgba(0,0,0,0.5); padding: 6px 10px; border-radius: 6px; display: inline-block;">
-                                SESSION: --</div>
-                            <div id="svdSessionStatus"
-                                style="font-size: 15px; margin-top: 8px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
-                                <span style="width: 8px; height: 8px; border-radius: 50%; background: #94a3b8;"></span>
-                                Status: Monitoring
+                        <div class="form-group">
+                            <label>Speed</label>
+                            <div class="segment-container" id="clinicianVoiceSpeed">
+                                <button class="segment-btn" onclick="window.dashboard.changeVoiceSetting('tempo', 'slow')">Slow</button>
+                                <button class="segment-btn active" onclick="window.dashboard.changeVoiceSetting('tempo', 'normal')">Normal</button>
+                                <button class="segment-btn" onclick="window.dashboard.changeVoiceSetting('tempo', 'fast')">Fast</button>
                             </div>
                         </div>
-                        <div id="sessionControlsGrid">
-                            <div id="activeSessionControls" class="active-session-row" style="display: none;">
-                                <button id="pauseSessionBtn" class="btn-pause-action">PAUSE</button>
-                                <button id="stopSessionBtn" class="btn-danger-action">STOP SESSION</button>
-                            </div>
-                            <div id="lockedStatusHint"
-                                style="font-size: 14px; color: var(--text-muted); text-align: center; margin-top: 5px; opacity: 0.6; font-style: italic;">
-                                Controls locked until session start.
+
+                        <div class="form-group">
+                            <label>Pitch</label>
+                            <div class="segment-container" id="clinicianVoicePitch">
+                                <button class="segment-btn" onclick="window.dashboard.changeVoiceSetting('pitch', 'low')">Low</button>
+                                <button class="segment-btn active" onclick="window.dashboard.changeVoiceSetting('pitch', 'normal')">Normal</button>
+                                <button class="segment-btn" onclick="window.dashboard.changeVoiceSetting('pitch', 'high')">High</button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- PRIVACY CARD -->
-                    <div class="clinical-card privacy-card"
-                        style="background: rgba(44, 132, 91, 0.05); border-color: rgba(44, 132, 91, 0.2);">
-                        <div class="privacy-badge"
-                            style="font-size: 15px; color: var(--color-primary-light); font-weight: 800; display: flex; align-items: center; gap: 6px;">
-                            <span
-                                style="width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary-light);"></span>
+                    <!-- Clinical Session Status -->
+                    <div class="glass-card">
+                        <h4 class="section-title">CLINICAL SESSION STATUS</h4>
+                        
+                        <div class="status-list">
+                            <div class="status-row">
+                                <span class="status-row-label"><span class="status-row-dot dot-muted"></span>Clinician</span>
+                                <span id="statusClinicianName" class="status-row-value">Dr. Alex Thompson</span>
+                            </div>
+                            <div class="status-row" id="statusPatientRow">
+                                <span class="status-row-label"><span class="status-row-dot dot-green"></span>Patient Status</span>
+                                <span id="statusPatientOnline" class="status-row-value value-active">Active <span class="inline-dot green"></span></span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-row-label"><span class="status-row-dot dot-muted"></span>Active Mode</span>
+                                <span id="statusActiveModeText" class="status-row-value value-teal">AI-Assisted Therapy</span>
+                            </div>
+                            <div class="status-row" id="statusJoinRow">
+                                <span class="status-row-label"><span class="status-row-dot dot-green"></span>Join Status</span>
+                                <span id="statusJoinOnline" class="status-row-value value-active">Patient Connected <span class="inline-dot green"></span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pause/Stop Controls -->
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <button class="btn-outline-teal btn-with-icon" id="clinicianPauseBtn" onclick="window.dashboard.togglePause()" style="width: 100%;">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            PAUSE SESSION
+                        </button>
+                        <button class="btn-danger btn-with-icon" id="clinicianStopBtnSidebar" onclick="window.dashboard.endSession()" style="width: 100%;">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+                            STOP SESSION
+                        </button>
+                    </div>
+
+                    <!-- HIPAA & Privacy Compliant -->
+                    <div class="glass-card accent-card hipaa-card">
+                        <h4 class="section-title" style="color: var(--teal);">
+                            <svg width="16" height="16" fill="none" stroke="var(--teal)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                             HIPAA & PRIVACY COMPLIANT
+                        </h4>
+                        <div class="hipaa-card-body">
+                            <div class="hipaa-icon">
+                                <svg width="28" height="28" fill="none" stroke="var(--teal)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            </div>
+                            <p style="font-size: 11px; color: var(--muted); line-height: 1.5;">
+                                All data is end-to-end encrypted and stored in compliance with HIPAA standards. No data is used for training.
+                            </p>
                         </div>
-                        <p style="font-size: 14px; color: var(--text-muted); line-height: 1.5; margin-top: 6px;">
-                            Zero-retention architecture. Voice data and session transcripts are processed in memory and
-                            never persisted.</p>
                     </div>
                 </div>
             </aside>
         </div>
     </div>
 
-    <!-- MODALS -->
+    <!-- ====================================================
+         2. PATIENT DASHBOARD VIEW
+         ==================================================== -->
+    <div id="patientView" class="view-container">
+        <!-- TOP NAVIGATION -->
+        <header class="top-nav">
+            <button id="patientHamburger" class="hamburger-toggle-btn" onclick="window.dashboard.toggleMobileDrawer(true)" aria-label="Open patient navigation drawer">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <div class="brand">
+                <img src="/assets/images/therapy%20now%20logo.png" alt="Psychotherapy Now Logo" class="dashboard-logo">
+                <div class="logo-text">
+                    PATIENT DASHBOARD
+                    <span>Psychotherapy Now</span>
+                </div>
+            </div>
+            <div class="top-center">
+                <div class="session-timer-pill">
+                    <span class="timer-dot"></span>
+                    <span class="session-timer-val">00:00</span>
+                    <span class="timer-label">SESSION TIME</span>
+                </div>
+            </div>
+            <div class="top-actions">
+                <div class="status-pill" id="patientTherapistStatus">
+                    <span class="status-dot active"></span>
+                    Therapist Connected
+                </div>
+                <div class="user-profile-bar" style="margin-left: 10px;">
+                    <button class="logout-link" onclick="window.dashboard.logout()" title="Logout">
+                        LOGOUT
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-left: 4px; opacity: 0.8;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                    <div class="avatar user-avatar-val">??</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN 3-COLUMN WORKSPACE -->
+        <div class="workspace">
+            <!-- LEFT COLUMN: YOUR SESSION GUIDE -->
+            <aside class="left-col">
+                <div class="column-header">
+                    <h3 style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                        YOUR SESSION GUIDE
+                    </h3>
+                </div>
+                <div class="column-body custom-scroll">
+                    <!-- Session steps -->
+                    <div class="glass-card">
+                        <div class="guide-step-list">
+                            <div class="guide-step-item">
+                                <div class="guide-step-number">1</div>
+                                <div class="guide-step-content">
+                                    <h5>Join your session</h5>
+                                    <p>You're connected and ready to begin.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step-item">
+                                <div class="guide-step-number">2</div>
+                                <div class="guide-step-content">
+                                    <h5>Allow microphone access</h5>
+                                    <p>This helps your therapist hear you clearly.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step-item">
+                                <div class="guide-step-number">3</div>
+                                <div class="guide-step-content">
+                                    <h5>Speak naturally</h5>
+                                    <p>Share your thoughts at your own pace. Take your time.</p>
+                                </div>
+                            </div>
+                            <div class="guide-step-item">
+                                <div class="guide-step-number">4</div>
+                                <div class="guide-step-content">
+                                    <h5>End session anytime</h5>
+                                    <p>You're in control. End the session whenever you need.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Session Details -->
+                    <div class="glass-card">
+                        <h4 class="section-title">SESSION DETAILS</h4>
+                        <div class="details-list">
+                            <div class="details-row">
+                                <div class="details-left">
+                                    <span class="details-icon">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                    </span>
+                                    <span class="details-label">Session ID</span>
+                                </div>
+                                <span class="session-id-val details-value monospace">--------</span>
+                            </div>
+                            <div class="details-row">
+                                <div class="details-left">
+                                    <span class="details-icon">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    </span>
+                                    <span class="details-label">Your Therapist</span>
+                                </div>
+                                <span id="patientTherapistName" class="details-value text-white">Dr. Alex Thompson</span>
+                            </div>
+                            <div class="details-row">
+                                <div class="details-left">
+                                    <span class="details-icon">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    </span>
+                                    <span class="details-label">Session Type</span>
+                                </div>
+                                <span id="patientSessionTypeText" class="details-value text-teal">AI-Assisted Therapy</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Safe Space Card -->
+                    <div class="glass-card accent-card hipaa-card">
+                        <h4 class="section-title" style="color: var(--teal); display: flex; align-items: center; gap: 6px;">
+                            YOU'RE IN A SAFE SPACE
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                        </h4>
+                        <div class="hipaa-card-body">
+                            <div class="hipaa-icon" style="color: var(--teal); border-color: rgba(36, 240, 208, 0.2);">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            </div>
+                            <p style="font-size: 11px; color: var(--muted); line-height: 1.5; margin: 0;">
+                                This is a private, confidential session. Your conversations are secure and protected.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- CENTER COLUMN: WORKSPACE STAGE -->
+            <main class="center-col">
+                <!-- AI ORB VISUALIZER -->
+                <div class="ai-orb-container">
+                    <div class="avatar-ring" id="patientOrb">
+                        <div class="ring-ripple"></div>
+                        <div class="ring-ripple delay-1"></div>
+                        <div class="avatar-core">AI</div>
+                    </div>
+                    <div class="status-indicator">
+                        <div class="status-text ai-status-text">
+                            <span class="status-dot"></span>
+                            Ready to begin
+                        </div>
+                    </div>
+                    <!-- Audio visualization wave -->
+                    <div class="audio-wave patient-audio-wave">
+                        <span></span><span></span><span></span><span></span><span></span>
+                    </div>
+                </div>
+
+                <!-- LIVE CONVERSATION CHAT CARD -->
+                <div class="patient-chat-workspace">
+                    <div class="workspace-header">
+                        <div class="workspace-header-pulse"></div>
+                        <span style="display: inline-flex; align-items: center; gap: 6px;">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            LIVE CONVERSATION
+                        </span>
+                        <span style="font-size: 11px; color: var(--muted); text-transform: none; font-weight: normal; margin-left: 6px;">You and your AI therapist</span>
+                    </div>
+                    <div class="patient-chat-body custom-scroll" id="patientChatBody">
+                        <!-- Empty State -->
+                        <div class="workspace-empty-state" id="patientChatEmpty">
+                            <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <p>No messages yet. Speak naturally or type below to talk with your AI therapist.</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Text/Type Box -->
+                    <div class="patient-input-row">
+                        <input type="text" id="patientTextInput" placeholder="Type here if you prefer not to speak..." onkeydown="window.dashboard.handlePatientTextKey(event)">
+                        <button onclick="window.dashboard.sendPatientTextMessage()" aria-label="Send message">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CONTROL BUTTONS -->
+                <div class="workspace-actions three-col">
+                    <button class="action-btn-rich" id="patientMicBtn" onclick="window.dashboard.toggleSessionMic('patient')" aria-label="Tap to speak">
+                        <div class="action-btn-icon teal-icon">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                        </div>
+                        <div class="action-btn-text">
+                            <span class="action-btn-label">TAP TO SPEAK</span>
+                            <span class="action-btn-sub">Hold to talk</span>
+                        </div>
+                    </button>
+                    <button class="action-btn-rich" id="patientTypeBtn" onclick="document.getElementById('patientTextInput').focus()" aria-label="Type message">
+                        <div class="action-btn-icon cyan-icon">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                        </div>
+                        <div class="action-btn-text">
+                            <span class="action-btn-label">TYPE MESSAGE</span>
+                            <span class="action-btn-sub">Write your message</span>
+                        </div>
+                    </button>
+                    <button class="action-btn-rich danger-action" id="patientStopBtn" onclick="window.dashboard.endSession()">
+                        <div class="action-btn-icon red-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="6" y="6" width="12" height="12" rx="2" />
+                            </svg>
+                        </div>
+                        <div class="action-btn-text">
+                            <span class="action-btn-label">END SESSION</span>
+                            <span class="action-btn-sub">End the session</span>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="security-note-row" style="margin-top: 20px;">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Messages are secure and confidential
+                </div>
+            </main>
+
+            <!-- RIGHT COLUMN: SETTINGS -->
+            <aside class="right-col">
+                <div class="column-header">
+                    <h3 style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        SESSION STATUS
+                    </h3>
+                </div>
+                <div class="column-body custom-scroll">
+                    <!-- Session Status Card -->
+                    <div class="glass-card">
+                        <div class="status-list" style="margin-top: 0;">
+                            <div class="status-row">
+                                <span class="status-row-label">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                    Therapist
+                                </span>
+                                <span id="statusTherapistLabel" class="status-row-value value-teal">Dr. Alex Thompson</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-row-label">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                    Connection
+                                </span>
+                                <span class="status-row-value value-active">Secure <span class="inline-dot green"></span></span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-row-label">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                                    Mode
+                                </span>
+                                <span id="statusModeLabel" class="status-row-value value-teal">AI-Assisted Therapy</span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-row-label">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                                    Microphone
+                                </span>
+                                <span id="statusMicLabel" class="status-row-value value-active">On <span class="inline-dot green"></span></span>
+                            </div>
+                            <div class="status-row">
+                                <span class="status-row-label">
+                                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                                    Support
+                                </span>
+                                <span class="status-row-value value-active">Live <span class="inline-dot green"></span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comfort Settings -->
+                    <div class="glass-card">
+                        <h4 class="section-title" style="display: flex; align-items: center; gap: 8px;">
+                            <svg width="14" height="14" fill="none" stroke="var(--teal)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                            COMFORT SETTINGS
+                        </h4>
+                        
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label>Text Size</label>
+                            <div class="segment-container" id="patientTextSize">
+                                <button class="segment-btn" onclick="window.dashboard.changeTextSize('small')">Small</button>
+                                <button class="segment-btn active" onclick="window.dashboard.changeTextSize('medium')">Medium</button>
+                                <button class="segment-btn" onclick="window.dashboard.changeTextSize('large')">Large</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Voice Volume</label>
+                            <div class="segment-container" id="patientVolume">
+                                <button class="segment-btn" onclick="window.dashboard.changeVolume('low')">Low</button>
+                                <button class="segment-btn active" onclick="window.dashboard.changeVolume('normal')">Normal</button>
+                                <button class="segment-btn" onclick="window.dashboard.changeVolume('high')">High</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="flex-direction: row; justify-content: space-between; align-items: center; margin-top: 12px;">
+                            <label style="margin-bottom: 0;">Captions
+                                <span class="input-hint" style="display: block; text-transform: none; margin-top: 2px;">Show text on-screen</span>
+                            </label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="captionsToggle" checked onchange="window.dashboard.toggleCaptions()">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- HIPAA Compliance -->
+                    <div class="glass-card accent-card hipaa-card">
+                        <h4 class="section-title" style="color: var(--teal); display: flex; align-items: center; gap: 8px;">
+                            <svg width="16" height="16" fill="none" stroke="var(--teal)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            HIPAA & PRIVACY COMPLIANT
+                        </h4>
+                        <div class="hipaa-card-body">
+                            <div class="hipaa-icon">
+                                <svg width="28" height="28" fill="none" stroke="var(--teal)" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            </div>
+                            <p style="font-size: 11px; color: var(--muted); line-height: 1.5; margin: 0;">
+                                Your privacy and security are our top priority. All data is encrypted and protected under HIPAA standards.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- ====================================================
+         3. DYNAMIC MOBILE DRAWER PANEL
+         ==================================================== -->
+    <div id="navigationDrawer" class="mobile-drawer">
+        <div class="drawer-header">
+            <div class="brand">
+                <img src="/assets/images/therapy%20now%20logo.png" alt="Psychotherapy Now Logo" class="dashboard-logo drawer-logo">
+                <div class="logo-text drawer-logo-text">
+                    <span id="drawerTitleText">CLINICAL PLATFORM</span>
+                </div>
+            </div>
+            <button class="icon-btn close-btn" onclick="window.dashboard.toggleMobileDrawer(false)" aria-label="Close navigation drawer">
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+
+        <div class="drawer-body custom-scroll" id="drawerBodyContent">
+            <!-- Dynamic elements appended by applyRoleUI -->
+        </div>
+
+        <div class="drawer-footer">
+            All data is end-to-end encrypted<br>
+            HIPAA compliant • Secure • Private
+        </div>
+    </div>
+
+
+    <!-- ====================================================
+         4. MODALS & OTHER OVERLAYS
+         ==================================================== -->
+         
+    <!-- RECHARGE MINUTE REQUIREMENT Paywall Modal -->
     <div class="modal-backdrop" id="paywallModal">
         <div class="modal-card">
             <div class="modal-header">
                 <h3>Demo Limit Reached</h3>
             </div>
             <div class="modal-body">
-                <p>Your 20-minute free demo has ended. Please purchase a platform license to continue.</p>
-            </div>
-            <div class="modal-footer"><button class="btn-solid-danger"
-                    style="background: var(--color-primary); width: 100%;">Upgrade Plan</button></div>
-        </div>
-    </div>
-
-    <!-- LOGIN OVERLAY (Hidden by default, used only if auth fails) -->
-    <div id="loginOverlay" class="modal-backdrop" style="background: #0f172a;">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3>Session Expired</h3>
-            </div>
-            <div class="modal-body">
-                <p style="font-size: 15px; color: var(--text-muted); margin-bottom: 20px;">Your session has expired.
-                    Please return to the website login page.</p>
+                <p style="font-size: 13px; color: var(--muted); line-height: 1.5;">Your 20-minute free demo has ended. Please purchase platform minutes to continue.</p>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary-action" onclick="window.location.href='/'" style="width: 100%;">Return to
-                    Login</button>
+                <button class="btn-teal" style="width: 100%;" onclick="window.dashboard.buyMinutes()">Upgrade Plan</button>
             </div>
         </div>
     </div>
 
+    <!-- RECHARGE MODAL -->
     <div class="modal-backdrop" id="rechargeModal">
         <div class="modal-card">
             <div class="modal-header">
                 <h3>Insufficient Minutes</h3>
             </div>
             <div class="modal-body">
-                <p>Your session balance is below the 20-minute clinical minimum.</p>
-                <div
-                    style="background: rgba(0,0,0,0.2); padding: 20px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border-color);">
-                    <div style="font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 10px;">Purchase
-                        60 Minutes</div>
-                    <div style="font-size: 14px; color: var(--text-muted); text-align: center;">Rate: $0.40/minute |
-                        Total: $24.00</div>
+                <p style="font-size: 13px; color: var(--muted); line-height: 1.5;">Your session balance is below the 20-minute clinical minimum.</p>
+                <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--border);">
+                    <div style="font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 6px; font-family: var(--font-head);">Purchase 60 Minutes</div>
+                    <div style="font-size: 12px; color: var(--muted); text-align: center;">Rate: $0.40/minute | Total: $24.00</div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary-action" style="width: 100%;"
-                    onclick="if(window.dashboard) { window.dashboard.buyMinutes(); }">Confirm
-                    $24.00 Deposit</button>
-                <button class="btn-text"
-                    onclick="document.getElementById('rechargeModal').classList.remove('active')">Close</button>
+                <button class="btn-teal" style="width: 100%;" onclick="window.dashboard.buyMinutes()">Confirm $24.00 Deposit</button>
+                <button class="btn-outline" onclick="document.getElementById('rechargeModal').classList.remove('active')">Close</button>
             </div>
         </div>
     </div>
 
-    <!-- PATIENT INTAKE MODAL (Shown to patients on join) -->
-    <div id="patientIntakeModal" class="modal-backdrop" data-role="patient" style="display: none; z-index: 10005;">
-        <div class="modal-card" style="max-width: 400px;">
+    <!-- PAYMENT GATEWAY MODAL — PayPal + Venmo -->
+    <div id="paymentModal" class="modal-backdrop" style="background:rgba(5, 9, 20, 0.95);">
+        <div class="modal-card" style="max-width:400px; background:#fff; padding:0; border-radius:12px; overflow:hidden; box-shadow: var(--shadow-lg);">
+            <!-- PayPal blue header -->
+            <div style="background:#003087; padding:24px; color:white; text-align:center; position:relative;">
+                <button id="closePaymentBtn" onclick="document.getElementById('paymentModal').style.display='none'" style="position:absolute; top:12px; right:16px; background:transparent; border:none; color:white; font-size:24px; cursor:pointer; min-height:30px;">&times;</button>
+                <div style="font-size:11px; opacity:0.8; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; font-weight: 700;">Clinical Top-up</div>
+                <h2 style="margin:0; font-size:28px; font-weight:700; font-family: var(--font-head);">$24.00</h2>
+                <p style="margin:6px 0 0 0; opacity:0.8; font-size:13px;">Package: 60 Clinical Minutes</p>
+            </div>
+            <!-- Body -->
+            <div style="padding:24px; color:#333;">
+                <p style="text-align:center; color:#666; font-size:12px; margin-bottom:16px;">Choose your payment method below.</p>
+                <div id="paypal-button-container" style="min-height:48px;"></div>
+                <div id="paypal-loading" style="text-align:center; padding:12px; color:#666; font-size:13px;">Loading PayPal...</div>
+                <div id="paypal-error" style="display:none; color:#b91c1c; background:#fee2e2; padding:10px; border-radius:6px; margin-top:10px; font-size:12px;"></div>
+                <button id="cancelPaymentBtn" onclick="document.getElementById('paymentModal').style.display='none'" style="width:100%; background:transparent; color:#666; padding:10px; margin-top:10px; border:none; cursor:pointer; font-size:13px;">Cancel</button>
+            </div>
+            <div style="background:#f3f4f6; padding:12px; border-top:1px solid #e5e7eb; text-align:center;">
+                <span style="font-size:10px; color:#9ca3af; text-transform:uppercase; letter-spacing:1px;">Securely powered by <b style="color:#003087;">Pay</b><b style="color:#009cde;">Pal</b></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- CLIENT INTAKE MODAL -->
+    <div id="patientIntakeModal" class="modal-backdrop">
+        <div class="modal-card" style="max-width: 380px;">
             <div class="modal-header">
                 <h3>Clinical Intake Profile</h3>
-                <p style="font-size: 13px; color: var(--text-dim); margin-top: 5px;">Required: Please provide these
-                    details to help the clinician prepare for your session.</p>
+                <p style="font-size: 12px; color: var(--muted); margin-top: 4px;">Required to help the clinician prepare for your session.</p>
             </div>
-            <div class="modal-body" style="padding: 25px;">
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label
-                        style="display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">Age</label>
-                    <input type="number" id="intakeAge" placeholder="Your age"
-                        style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: white;">
+            <div class="modal-body" style="padding: 20px;">
+                <div class="form-group">
+                    <label for="intakeAge">Age</label>
+                    <input type="number" id="intakeAge" placeholder="Enter age" min="10" max="100">
                 </div>
                 <div class="form-group">
-                    <label
-                        style="display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">Gender</label>
-                    <select id="intakeSex"
-                        style="width: 100%; padding: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: white;">
-                        <option value="">Select...</option>
+                    <label for="intakeSex">Gender</label>
+                    <select id="intakeSex">
+                        <option value="">Select gender...</option>
                         <option value="Female">Female</option>
                         <option value="Male">Male</option>
                         <option value="Non-Binary">Non-Binary</option>
@@ -643,148 +938,31 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-primary-action" onclick="window.dashboard.submitIntake()" style="width: 100%;">Start
-                    Session</button>
+                <button class="btn-teal" onclick="window.dashboard.submitIntake()" style="width: 100%;">Save & Start Session</button>
             </div>
         </div>
     </div>
 
-    <!-- PATIENT INVITE SETUP MODAL -->
-    <div id="patientInviteModal"
-        style="display: none; position: fixed; inset: 0; background: rgba(6,9,19,0.92); backdrop-filter: blur(20px); z-index: 10001; align-items: center; justify-content: center;">
-        <div
-            style="max-width: 480px; width: 90%; background: #0f172a; border: 1px solid rgba(44,222,128,0.3); border-radius: 16px; overflow: hidden; box-shadow: 0 25px 60px rgba(0,0,0,0.6);">
-            <!-- Header -->
-            <div
-                style="background: linear-gradient(135deg, rgba(44,222,128,0.15), rgba(56,189,248,0.1)); padding: 28px 30px 20px; border-bottom: 1px solid rgba(255,255,255,0.06);">
-                <div style="display: flex; align-items: center; gap: 12px;">
-                    <div
-                        style="width: 40px; height: 40px; background: rgba(44,222,128,0.2); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-                        <svg width="20" height="20" fill="none" stroke="#2cde80" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 style="margin: 0; color: #fff; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
-                            Patient Invite Setup</h3>
-                        <p style="margin: 4px 0 0; color: var(--text-dim); font-size: 13px;">Copy the link below and
-                            send it to your patient.</p>
-                    </div>
-                </div>
+    <!-- LOGIN ERROR OVERLAY -->
+    <div id="loginOverlay" class="modal-backdrop" style="background:#050914;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Session Expired</h3>
             </div>
-
-            <!-- Body -->
-            <div style="padding: 28px 30px;">
-                <!-- Patient details removed as they are now collected via patient-side popup -->
-
-                <!-- Generated Link Box -->
-                <div id="generatedLinkBox" style="margin-bottom: 24px; display: none;">
-                    <label
-                        style="display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">Your
-                        Invite Link</label>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <input type="text" id="generatedLinkInput" readonly
-                            style="flex: 1; padding: 11px 14px; background: rgba(0,0,0,0.5); border: 1px solid rgba(44,222,128,0.3); border-radius: 10px; color: #2cde80; font-size: 12px; font-family: monospace; outline: none;">
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div style="display: flex; gap: 12px;">
-                    <button id="copyInviteLinkBtn" onclick="window.dashboard.copyGeneratedLink()"
-                        style="flex: 1; padding: 14px; background: linear-gradient(135deg, #2cde80, #38bdf8); color: #000; font-weight: 700; font-size: 14px; letter-spacing: 1.5px; border: none; border-radius: 10px; cursor: pointer; transition: all 0.2s; opacity: 0.5; pointer-events: none;"
-                        onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                        📋 COPY LINK
-                    </button>
-                    <button
-                        onclick="document.getElementById('patientInviteModal').style.setProperty('display', 'none', 'important')"
-                        style="padding: 14px 20px; background: rgba(255,255,255,0.06); color: var(--text-dim); font-weight: 600; font-size: 13px; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; cursor: pointer; transition: all 0.2s;"
-                        onmouseover="this.style.background='rgba(255,255,255,0.1)'"
-                        onmouseout="this.style.background='rgba(255,255,255,0.06)'">
-                        Close
-                    </button>
-                </div>
+            <div class="modal-body">
+                <p style="font-size: 13px; color: var(--muted); line-height: 1.5;">Your authentication session has expired. Please return to the website login page.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-teal" onclick="window.location.href='/'" style="width: 100%;">Return to Login</button>
             </div>
         </div>
     </div>
 
 
-
-    <!-- PAYMENT GATEWAY MODAL — PayPal + Venmo -->
-    <div id="paymentModal" class="modal-backdrop" style="display:none; background:rgba(0,0,0,0.9);
-                backdrop-filter:blur(10px); z-index:10000;
-                align-items:center; justify-content:center;">
-
-        <div class="modal-card" style="max-width:450px; width:90%; background:#fff;
-                  padding:0; border-radius:12px; overflow:hidden;
-                  box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);">
-
-            <!-- Blue header -->
-            <div style="background:#003087; padding:30px;
-                   color:white; text-align:center; position:relative;">
-
-                <!-- Close Button -->
-                <button id="closePaymentBtn" style="position:absolute; top:15px; right:20px;
-                         background:transparent; border:none;
-                         color:white; font-size:24px; cursor:pointer;
-                         opacity:0.8; transition:opacity 0.2s;">
-                    &times;
-                </button>
-
-                <div style="font-size:14px; opacity:0.9;
-                      text-transform:uppercase; letter-spacing:1px;
-                      margin-bottom:8px;">Clinical Top-up</div>
-                <h2 style="margin:0; font-size:32px; font-weight:700;">
-                    $24.00
-                </h2>
-                <p style="margin:10px 0 0 0; opacity:0.8; font-size:14px;">
-                    Package: 60 Clinical Minutes
-                </p>
-            </div>
-
-            <!-- PayPal Buttons Body -->
-            <div style="padding:30px;">
-                <p style="text-align:center; color:#6b7280; font-size:13px;
-                    margin:0 0 20px 0;">
-                    Choose your preferred payment method below.
-                </p>
-
-                <!-- PayPal SDK renders PayPal + Venmo buttons here -->
-                <div id="paypal-button-container" style="min-height:48px;"></div>
-
-                <div id="paypal-loading" style="text-align:center; padding:16px; color:#6b7280;
-                      font-size:14px;">
-                    Loading payment options...
-                </div>
-
-                <div id="paypal-error" style="display:none; color:#dc2626;
-                      background:#fef2f2; padding:12px;
-                      border-radius:8px; margin-top:10px; font-size:13px;">
-                </div>
-
-                <button id="cancelPaymentBtn" style="width:100%; background:transparent;
-                         color:#6b7280; padding:12px; margin-top:14px;
-                         border:none; cursor:pointer; font-size:14px;">
-                    Cancel
-                </button>
-            </div>
-
-            <!-- Footer -->
-            <div style="background:#f9fafb; padding:15px;
-                   border-top:1px solid #f3f4f6; text-align:center;">
-                <span style="font-size:11px; color:#9ca3af;
-                       text-transform:uppercase; letter-spacing:1px;">
-                    Securely powered by
-                    <b style="color:#003087;">Pay</b><b style="color:#009cde;">Pal</b>
-                </span>
-            </div>
-
-        </div>
-    </div>
-
-    <script src="session-service.js?v=4"></script>
-    <script src="dashboard-bridge.js?v=4"></script>
-    <script src="script.js?v=invite_v7"></script>
+    <!-- ====================================================
+         5. RUN INTEGRATION
+         ==================================================== -->
+    <script src="script.js?v=invite_v10"></script>
     <script>
         // Start initialization bridge
         window.addEventListener('load', async () => {
@@ -799,5 +977,4 @@
         });
     </script>
 </body>
-
 </html>

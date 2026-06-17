@@ -13,8 +13,17 @@ const AuthService = {
         });
         
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Login failed');
+            let errorMsg = 'Login failed';
+            try {
+                const error = await response.json();
+                errorMsg = error.detail || errorMsg;
+            } catch (e) {
+                try {
+                    const txt = await response.text();
+                    if (txt && txt.length < 200) errorMsg = txt;
+                } catch (e2) {}
+            }
+            throw new Error(errorMsg);
         }
         
         const data = await response.json();
@@ -32,6 +41,30 @@ const AuthService = {
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || 'Signup failed');
+        }
+
+        return await response.json();
+    },
+
+    async forgotPassword(email) {
+        const response = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+
+        if (!response.ok) {
+            let errorMsg = 'Password reset request failed';
+            try {
+                const error = await response.json();
+                errorMsg = error.detail || errorMsg;
+            } catch (e) {
+                try {
+                    const txt = await response.text();
+                    if (txt && txt.length < 200) errorMsg = txt;
+                } catch (e2) {}
+            }
+            throw new Error(errorMsg);
         }
 
         return await response.json();
@@ -83,6 +116,10 @@ const AuthService = {
         if (response.status === 401) {
             const newToken = await this.refresh();
             return this.getStatus(); // Retry with new token
+        }
+
+        if (!response.ok) {
+            throw new Error('Failed to retrieve status');
         }
 
         return await response.json();

@@ -15,3 +15,17 @@ node_modules/
 .idea/
 .vscode/
 ai_therapy.db
+
+# Secrets and Keys
+*.pem
+*.key
+credentials*
+secrets*
+
+# Backup and temp files
+*.bak
+*.zip
+*.tar.gz
+*.log
+scratch/
+.tempmediaStorage/
