@@ -512,6 +512,38 @@
         let firstTokenTime = null;
         let lastChatReply = "";
 
+        // Unlocking function for templates/index.html
+        function unlockAudio() {
+            // Unlock standard HTML5 Audio Player
+            const silence = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA";
+            audioPlayer.src = silence;
+            audioPlayer.play().then(() => {
+                console.log("[AUDIO UNLOCK] audioPlayer unlocked successfully");
+            }).catch(e => {
+                console.warn("[AUDIO UNLOCK] audioPlayer unlock failed:", e);
+            });
+
+            // Pre-create/Resume AudioContexts
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === "suspended") {
+                audioContext.resume().catch(e => console.warn("[AUDIO UNLOCK] audioContext resume failed:", e));
+            }
+
+            if (!window.voiceProcessorAudioCtx) {
+                window.voiceProcessorAudioCtx = new AudioContext({ sampleRate: 24000 });
+            }
+            if (window.voiceProcessorAudioCtx.state === "suspended") {
+                window.voiceProcessorAudioCtx.resume().catch(e => console.warn("[AUDIO UNLOCK] voiceProcessorAudioCtx resume failed:", e));
+            }
+
+            document.removeEventListener("click", unlockAudio, true);
+            document.removeEventListener("touchstart", unlockAudio, true);
+        }
+        document.addEventListener("click", unlockAudio, true);
+        document.addEventListener("touchstart", unlockAudio, true);
+
         const messagesEl = document.getElementById("messages");
         const userInput = document.getElementById("userInput");
         const sendBtn = document.getElementById("sendBtn");
@@ -822,7 +854,12 @@
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             voiceWs = new WebSocket(`${protocol}//${window.location.host}/ws/voice`);
 
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === "suspended") {
+                audioContext.resume().catch(() => {});
+            }
             let playbackCursor = 0;
             const PLAYBACK_RATE = 1.0;
 
@@ -830,7 +867,13 @@
                 sessionStatusEl.textContent = "Voice session active";
                 playbackCursor = audioContext.currentTime + 0.1;
 
-                const audioCtx = new AudioContext({ sampleRate: 24000 });
+                if (!window.voiceProcessorAudioCtx) {
+                    window.voiceProcessorAudioCtx = new AudioContext({ sampleRate: 24000 });
+                }
+                const audioCtx = window.voiceProcessorAudioCtx;
+                if (audioCtx.state === "suspended") {
+                    audioCtx.resume().catch(() => {});
+                }
                 const source = audioCtx.createMediaStreamSource(stream);
                 const processor = audioCtx.createScriptProcessor(4096, 1, 1);
 
@@ -966,7 +1009,7 @@
             if (window.voiceProcessor) {
                 window.voiceProcessor.processor.disconnect();
                 window.voiceProcessor.source.disconnect();
-                window.voiceProcessor.audioCtx.close();
+                window.voiceProcessor.audioCtx.suspend().catch(() => {});
                 window.voiceProcessor = null;
             }
 
@@ -976,8 +1019,7 @@
             }
 
             if (audioContext) {
-                audioContext.close();
-                audioContext = null;
+                audioContext.suspend().catch(() => {});
             }
 
             if (!chatWs || chatWs.readyState !== WebSocket.OPEN) {

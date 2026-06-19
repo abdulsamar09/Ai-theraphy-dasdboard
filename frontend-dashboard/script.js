@@ -99,7 +99,7 @@ class TherapyDashboard {
         this.activeChannel = null;
 
         // Session mode selected state
-        this.sessionMode = "supervised_client"; // default
+        this.sessionMode = "ai_therapist_training"; // default
 
         // Comfort settings
         this.textSize = "medium";
@@ -118,6 +118,12 @@ class TherapyDashboard {
         // Patient audio monitoring
         this.monitoringPatientAudio = false;
         this.audioStreamer = null;
+
+        // Pre-created audio players for user-gesture unlocking
+        this.ttsPlayer = new Audio();
+        this.ttsPlayer.id = "ttsAudioPlayer";
+        this.patientAudioPlayer = new Audio();
+        this.patientAudioPlayer.id = "patientAudioPlayer";
 
         // Sentence-based TTS Queue
         this.ttsQueue = [];
@@ -142,6 +148,39 @@ class TherapyDashboard {
     init() {
         this.checkURLParams();
         this.bindEvents();
+
+        // Append pre-created audio elements to body
+        document.body.appendChild(this.ttsPlayer);
+        document.body.appendChild(this.patientAudioPlayer);
+
+        this.setupAudioUnlock();
+    }
+
+    setupAudioUnlock() {
+        const unlockAudio = () => {
+            const silence = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAAA";
+            this.ttsPlayer.src = silence;
+            this.patientAudioPlayer.src = silence;
+
+            // Pre-create/Resume AudioContext
+            if (!this.audioCtx) {
+                this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            Promise.all([
+                this.ttsPlayer.play(),
+                this.patientAudioPlayer.play(),
+                this.audioCtx.state === "suspended" ? this.audioCtx.resume() : Promise.resolve()
+            ]).then(() => {
+                console.log("[AUDIO] Both audio players and audio context unlocked successfully");
+                document.removeEventListener("click", unlockAudio, true);
+                document.removeEventListener("touchstart", unlockAudio, true);
+            }).catch(err => {
+                console.warn("[AUDIO] Audio unlock failed, will retry on next interaction:", err);
+            });
+        };
+        document.addEventListener("click", unlockAudio, true);
+        document.addEventListener("touchstart", unlockAudio, true);
     }
 
     checkURLParams() {
@@ -325,8 +364,8 @@ class TherapyDashboard {
         const titleEl = document.getElementById("modeSetupTitle");
         if (titleEl) {
             const formattedName = mode === "supervised_client" ? "AI-Assisted Therapy Session" :
-                                  mode === "clinician_as_client" ? "AI as Therapist (Clinician as Client)" :
-                                  mode === "ai_therapist_training" ? "AI as Therapist (Training Modality)" :
+                                  mode === "clinician_as_client" ? "Clinician as client" :
+                                  mode === "ai_therapist_training" ? "Training Modality" :
                                   "AI as Patient";
             titleEl.innerText = "SETUP FOR " + formattedName.toUpperCase();
         }
@@ -358,22 +397,16 @@ class TherapyDashboard {
         const config = {
             type: "session_config",
             session_mode: mode,
-            approach: "CBT",
             special_instructions: "",
             patient_profile: {},
             roleplay_profile: {}
         };
 
         if (mode === "supervised_client") {
-            const app = document.getElementById("approach-supervised_client")?.value || "CBT";
-            config.approach = app;
+            // No custom frontend config fields besides default mode selection
         } else if (mode === "clinician_as_client") {
-            const app = document.getElementById("approach-clinician_as_client")?.value || "CBT";
-            config.approach = app;
             config.special_instructions = document.getElementById("inst-clinician_as_client")?.value || "";
         } else if (mode === "ai_therapist_training") {
-            const app = document.getElementById("approach-ai_therapist_training")?.value || "CBT";
-            config.approach = app;
             config.roleplay_profile = {
                 client_type: document.getElementById("roleplay-client_type")?.value || "Adult client",
                 presenting_problem: document.getElementById("roleplay-problem")?.value || "Anxiety",
@@ -381,7 +414,6 @@ class TherapyDashboard {
             };
             config.special_instructions = config.roleplay_profile.training_instructions;
         } else if (mode === "ai_patient_roleplay") {
-            config.approach = "";
             config.patient_profile = {
                 age: document.getElementById("ai_patient-age")?.value || "30",
                 gender: document.getElementById("ai_patient-gender")?.value || "Female",
@@ -418,7 +450,7 @@ class TherapyDashboard {
             // Append note block locally
             this.appendWorkspaceBlock("note", "CLINICIAN NOTE", text);
             input.value = "";
-            this.toast("Clinical directive sent to AI");
+            this.toast("Private instruction sent to AI");
         }
     }
 
@@ -516,7 +548,7 @@ class TherapyDashboard {
             if (patientView) patientView.style.display = "none";
 
             // Default Setup Mode Card
-            this.selectSessionMode("supervised_client");
+            this.selectSessionMode("ai_therapist_training");
 
             const displayEl = document.getElementById("clinicianSessionIdDisplay");
             if (displayEl) displayEl.value = this.sessionId || this.user.fixed_room_id || "";
@@ -1323,11 +1355,13 @@ class TherapyDashboard {
 
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
-            const audio = new Audio(url);
+            
+            this.ttsPlayer.src = url;
+            this.ttsPlayer.load();
 
             // Respect patient comfort volume setting
             const volumeMultiplier = this.volume === 'low' ? 0.4 : this.volume === 'high' ? 1.0 : 0.7;
-            audio.volume = volumeMultiplier;
+            this.ttsPlayer.volume = volumeMultiplier;
 
             // Trigger AI visualizer ring ripple
             const ringId = this.user.role === "therapist" ? "clinicianOrb" : "patientOrb";
@@ -1342,18 +1376,24 @@ class TherapyDashboard {
                     URL.revokeObjectURL(url);
                     resolve();
                 };
-                audio.onended = safeResolve;
-                audio.onerror = safeResolve;
+                this.ttsPlayer.onended = safeResolve;
+                this.ttsPlayer.onerror = (err) => {
+                    console.error("TTS playback error event:", err);
+                    safeResolve();
+                };
                 
                 const fallbackTimeout = setTimeout(safeResolve, 15000);
                 
-                audio.onloadedmetadata = () => {
+                this.ttsPlayer.onloadedmetadata = () => {
                     clearTimeout(fallbackTimeout);
-                    const durationMs = (audio.duration || 5) * 1000;
+                    const durationMs = (this.ttsPlayer.duration || 5) * 1000;
                     setTimeout(safeResolve, durationMs + 2000);
                 };
 
-                audio.play().catch(safeResolve);
+                this.ttsPlayer.play().catch(err => {
+                    console.error("TTS play() failed:", err);
+                    safeResolve();
+                });
             });
 
             if (ring) ring.classList.remove("vis-active");
@@ -1412,10 +1452,7 @@ class TherapyDashboard {
         if (this.user.role !== "therapist") return;
         
         if (!this.audioStreamer) {
-            const player = document.createElement("audio");
-            player.id = "patientAudioPlayer";
-            document.body.appendChild(player);
-            this.audioStreamer = new PatientAudioStreamer(player);
+            this.audioStreamer = new PatientAudioStreamer(this.patientAudioPlayer);
         }
         
         this.audioStreamer.push(arrayBuffer);

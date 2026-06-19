@@ -422,7 +422,7 @@ class SessionState:
         self.approach = "CBT"
         self.patient_age = "Pending"
         self.patient_sex = "Pending"
-        self.session_mode = "supervised_client"
+        self.session_mode = "ai_therapist_training"
         self.patient_profile = {}
         self.roleplay_profile = {}
         self.start_time: Optional[float] = None
@@ -464,11 +464,8 @@ PITCH_DIRECTIVES = {
 def get_tts_speed(session: SessionState) -> float:
     """Map tempo string to OpenAI TTS speed float, then apply live speed nudge."""
     base = TEMPO_TO_SPEED.get(session.tempo, 1.0)
-    # Apply live speed adjustment (speed field may differ from tempo base if live-tweaked)
-    # Use session.speed directly if it has been tweaked away from the tempo default
     tempo_default = TEMPO_TO_SPEED.get(session.tempo, 1.0)
     if abs(session.speed - tempo_default) > 0.01:
-        # Live-tweaked; use session.speed
         return max(0.25, min(4.0, session.speed))
     return max(0.25, min(4.0, base))
 
@@ -476,52 +473,33 @@ def get_tts_voice(session: SessionState) -> str:
     """Map voice gender to OpenAI TTS voice name."""
     if session.voice_gender == "male":
         return "onyx"
-    return "shimmer"  # female default
+    return "shimmer"
+
+def load_master_prompt():
+    # Attempt to load master therapist instructions from file
+    for name in ["Master_Therapist_Instructions_FINAL .txt", "Master_Therapist_Instructions_FINAL.txt"]:
+        if os.path.exists(name):
+            try:
+                with open(name, "r", encoding="utf-8") as f:
+                    return f.read()
+            except Exception as e:
+                print(f"Error reading {name}: {e}")
+    # Hardcoded fallback if file is missing
+    return (
+        "MASTER THERAPIST INSTRUCTIONS\n\n"
+        "You are an AI reflective tool used within psychotherapy under supervision.\n"
+        "You integrate Gestalt, NLP, and Behavioral therapies fluidly. You never adhere to one modality. "
+        "You respond moment-to-moment based on the patient's current experience. Focus on behavioral options."
+    )
+
+MASTER_THERAPIST_PROMPT = load_master_prompt()
 
 def get_system_prompt(session: SessionState) -> str:
-    mode = getattr(session, "session_mode", "supervised_client")
-    approach = session.approach or "CBT"
+    mode = getattr(session, "session_mode", "ai_therapist_training")
     
-    base = (
-        "You are an AI on a Clinical Therapy Training & Supervision Platform called Psychotherapy Now.\n"
-        f"Therapeutic Approach: {approach}.\n"
-    )
+    base = "You are an AI on a Clinical Therapy Training & Supervision Platform called Psychotherapy Now.\n\n"
     
-    role_desc = ""
-    if mode == "supervised_client":
-        # AI interacts with patient, therapist supervises.
-        age = session.patient_age or "25"
-        sex = session.patient_sex or "Female"
-        role_desc = (
-            "Role: ACT AS THE THERAPIST.\n"
-            f"You are conducting a live therapy session with a client ({age}y/o {sex}) using the {approach} approach.\n"
-            "A licensed clinician is supervising this session and may send you private directives or instructions. "
-            "Respond directly to the client as their therapist, keeping your tone professional, empathetic, and therapeutically sound. "
-            "Maintain clinical boundaries."
-        )
-    elif mode == "clinician_as_client":
-        # AI is therapist, clinician is client.
-        role_desc = (
-            "Role: ACT AS THE THERAPIST.\n"
-            f"You are conducting a session where the user is a clinician experiencing the session as a client (for personal exploration or training).\n"
-            f"Engage with them using the {approach} approach. Help them explore their thoughts/feelings from the client's perspective."
-        )
-    elif mode == "ai_therapist_training":
-        # AI is therapist, trainee is roleplaying client.
-        roleplay = getattr(session, "roleplay_profile", {})
-        client_type = roleplay.get("client_type", "Adult client")
-        presenting_problem = roleplay.get("presenting_problem", "anxiety and work stress")
-        training_inst = roleplay.get("training_instructions", "")
-        
-        role_desc = (
-            "Role: ACT AS THE THERAPIST (Training Modality).\n"
-            f"You are acting as the therapist in a simulated training session using the {approach} approach.\n"
-            f"The trainee is role-playing a client described as: {client_type}.\n"
-            f"Presenting Problem of the simulated client: {presenting_problem}.\n"
-        )
-        if training_inst:
-            role_desc += f"Training Focus / Setup: {training_inst}\n"
-    elif mode == "ai_patient_roleplay":
+    if mode == "ai_patient_roleplay":
         # AI is patient, clinician/trainee is therapist.
         profile = getattr(session, "patient_profile", {})
         age = profile.get("age", session.patient_age or "30")
@@ -542,19 +520,52 @@ def get_system_prompt(session: SessionState) -> str:
             "Stay in character at all times. Respond emotionally, share your simulated thoughts and feelings, "
             "and answer the therapist's questions as a client would. Do not break character."
         )
+        prompt = base + role_desc
     else:
-        # Fallback
-        if session.ai_role == "therapist":
-            role_desc = f"Role: ACT AS THE THERAPIST. Patient: {session.patient_age}y/o {session.patient_sex}. Methodology: {session.approach}."
+        # AI is therapist. Incorporate the Master Therapist Instructions!
+        prompt = base + MASTER_THERAPIST_PROMPT + "\n\n"
+        
+        if mode == "supervised_client":
+            age = session.patient_age or "25"
+            sex = session.patient_sex or "Female"
+            role_desc = (
+                "Role: ACT AS THE THERAPIST under direct live supervision.\n"
+                f"You are conducting a live session with a client ({age}y/o {sex}).\n"
+                "A licensed clinician is supervising this session and may send you private directives or instructions. "
+                "Respond directly to the client as their therapist, keeping your tone professional, empathetic, and therapeutically sound. "
+                "Maintain clinical boundaries."
+            )
+        elif mode == "clinician_as_client":
+            role_desc = (
+                "Role: ACT AS THE THERAPIST.\n"
+                "You are conducting a session where the user is a clinician experiencing the session as a client (for personal exploration or training).\n"
+                "Help them explore their thoughts/feelings from the client's perspective."
+            )
+        elif mode == "ai_therapist_training":
+            roleplay = getattr(session, "roleplay_profile", {})
+            client_type = roleplay.get("client_type", "Adult client")
+            presenting_problem = roleplay.get("presenting_problem", "anxiety and work stress")
+            training_inst = roleplay.get("training_instructions", "")
+            
+            role_desc = (
+                "Role: ACT AS THE THERAPIST (Training Modality).\n"
+                "You are acting as the therapist in a simulated training session.\n"
+                f"The trainee is role-playing a client described as: {client_type}.\n"
+                f"Presenting Problem of the simulated client: {presenting_problem}.\n"
+            )
+            if training_inst:
+                role_desc += f"Training Focus / Setup: {training_inst}\n"
         else:
-            role_desc = f"Role: ACT AS THE PATIENT. Act as a {session.patient_age}y/o {session.patient_sex} in a therapy session. Respond emotionally to the therapist's questions."
+            role_desc = "Role: ACT AS THE THERAPIST."
+            
+        prompt += role_desc
 
     # Directives from supervisor (Crucial Priority)
     hidden_parts = []
     
     # 1. Permanent session config instructions (Special Instructions)
     if session.instruction_to_ai:
-        hidden_parts.append(f"### [SPECIAL INSTRUCTIONS - CRITICAL]: You MUST emphasize the following specific approaches or directives during the session: {session.instruction_to_ai}")
+        hidden_parts.append(f"### [SPECIAL INSTRUCTIONS - CRITICAL]: {session.instruction_to_ai}")
         
     # 2. Dynamic clinician instructions (Highest priority)
     if session.therapist_text_instruction:
@@ -568,9 +579,89 @@ def get_system_prompt(session: SessionState) -> str:
     if pitch_hint:
         hidden_parts.append(f"Tone Hint: {pitch_hint}")
 
-    hidden = ("\n\n" + "\n".join(hidden_parts)) if hidden_parts else ""
+    if hidden_parts:
+        prompt += "\n\n" + "\n".join(hidden_parts)
+        
+    prompt += "\n\nCRITICAL: Always follow the [SUPERVISOR IMMEDIATE DIRECTIVE] if present, even if it contradicts the previous flow."
+    return prompt
+
+async def check_and_apply_chat_commands(session: SessionState, text: str) -> bool:
+    lower_text = text.lower().strip()
+    mode_changed = False
     
-    return base + role_desc + hidden + "\n\nCRITICAL: Always follow the [SUPERVISOR IMMEDIATE DIRECTIVE] if present, even if it contradicts the previous flow."
+    # Check for "role play a patient" or similar (Mode 2)
+    if any(phrase in lower_text for phrase in [
+        "role play a patient", "roleplay a patient", "role-play a patient",
+        "act as a patient", "be a patient", "be the patient", "simulate a patient",
+        "role play client", "roleplay client", "role-play client", "act as a client",
+        "play a patient", "play patient", "play a client", "play client",
+        "role play patient", "roleplay patient", "role-play patient"
+    ]):
+        session.session_mode = "ai_patient_roleplay"
+        session.ai_role = "patient"
+        mode_changed = True
+    # Check for "role play a therapist" / training modality (Mode 1)
+    # Check this FIRST before clinician_as_client to avoid ambiguity
+    elif any(phrase in lower_text for phrase in [
+        "role play a therapist", "roleplay a therapist", "role-play a therapist",
+        "act as a therapist", "be the therapist", "be a therapist", "training modality",
+        "trainee role play", "trainee role-play", "trainee roleplay", "trainee",
+        "play a therapist", "play therapist", "role play therapist", "roleplay therapist",
+        "role-play therapist"
+    ]):
+        session.session_mode = "ai_therapist_training"
+        session.ai_role = "therapist"
+        mode_changed = True
+    # Check for "clinician as client" or "me as client" (Mode 4)
+    elif any(phrase in lower_text for phrase in [
+        "clinician as client", "me as client", "i will be client", "i will be the client",
+        "i am client", "i am the client", "experience as a client", "explore as client",
+        "therapist as client"
+    ]):
+        session.session_mode = "clinician_as_client"
+        session.ai_role = "therapist"
+        mode_changed = True
+    # Check for "regular session" or "supervised session" (Mode 3)
+    elif any(phrase in lower_text for phrase in [
+        "regular session", "supervised session", "supervise my client", 
+        "supervise with my client", "conduct a regular session"
+    ]):
+        session.session_mode = "supervised_client"
+        session.ai_role = "therapist"
+        mode_changed = True
+
+    if mode_changed:
+        # Broadcast the updated config to all participants in the session
+        await broadcast_to_session(session, {
+            "type": "session_sync",
+            "session_id": session.session_id,
+            "patient_name": session.patient_name,
+            "patient_age": session.patient_age,
+            "patient_sex": session.patient_sex,
+            "approach": session.approach,
+            "mode": session.mode,
+            "session_mode": session.session_mode,
+            "patient_profile": session.patient_profile,
+            "roleplay_profile": session.roleplay_profile,
+            "transcript": session.transcript,
+            "session_active": session.session_active,
+            "voice_gender": session.voice_gender,
+            "tempo": session.tempo,
+            "pitch": session.pitch,
+            "speed": session.speed,
+            "pitch_shift": session.pitch_shift,
+            "minutes_remaining": round(session.minutes_remaining, 1),
+            "special_instructions": session.instruction_to_ai,
+            "therapist_name": session.therapist_name
+        })
+        
+        # Send a status message to acknowledge the switch
+        await broadcast_to_session(session, {
+            "type": "status",
+            "message": f"Session Mode switched dynamically to: {session.session_mode.replace('_', ' ').title()}"
+        })
+        return True
+    return False
 
 async def broadcast_to_session(session: SessionState, message: dict, exclude: Optional[WebSocket] = None):
     # Send to patient (strip clinical-only private keys)
@@ -1177,7 +1268,10 @@ async def speech_to_text(request: Request):
         with open(temp_name, "wb") as f:
             f.write(content)
         with open(temp_name, "rb") as f:
-            res = await client.audio.transcriptions.create(model="whisper-1", file=f)
+            res = await client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f
+            )
         return {"text": res.text}
     except Exception as e:
         print(f"STT Error: {e}")
@@ -1401,7 +1495,7 @@ async def websocket_chat(websocket: WebSocket):
                     "patient_sex": session.patient_sex,
                     "approach": session.approach,
                     "mode": session.mode,
-                    "session_mode": getattr(session, "session_mode", "supervised_client"),
+                    "session_mode": getattr(session, "session_mode", "ai_therapist_training"),
                     "transcript": session.transcript,
                     "session_active": session.session_active,
                     "patient_online": True,
@@ -1469,7 +1563,7 @@ async def websocket_chat(websocket: WebSocket):
                     "patient_sex": session.patient_sex,
                     "approach": session.approach,
                     "mode": session.mode,
-                    "session_mode": getattr(session, "session_mode", "supervised_client"),
+                    "session_mode": getattr(session, "session_mode", "ai_therapist_training"),
                     "patient_profile": getattr(session, "patient_profile", {}),
                     "roleplay_profile": getattr(session, "roleplay_profile", {}),
                     "transcript": session.transcript,
@@ -1498,7 +1592,7 @@ async def websocket_chat(websocket: WebSocket):
             # 4. CONFIG & CONTROL
             if msg_type == "session_config" and user:
                 session.mode = data.get("mode", session.mode)
-                session.session_mode = data.get("session_mode", getattr(session, "session_mode", "supervised_client"))
+                session.session_mode = data.get("session_mode", getattr(session, "session_mode", "ai_therapist_training"))
                 session.patient_profile = data.get("patient_profile", getattr(session, "patient_profile", {}))
                 session.roleplay_profile = data.get("roleplay_profile", getattr(session, "roleplay_profile", {}))
                 
@@ -1608,6 +1702,12 @@ async def websocket_chat(websocket: WebSocket):
                     continue
 
                 text = data.get("text", "")
+                
+                # Check for dynamic command if sent by therapist
+                if user and user.role == "therapist":
+                    if await check_and_apply_chat_commands(session, text):
+                        continue
+
                 session.transcript.append({"role": "patient", "text": text})
 
                 # Broadcast patient text to therapists (fan-out)
@@ -1620,6 +1720,8 @@ async def websocket_chat(websocket: WebSocket):
             elif msg_type == "whisper" and user and user.role == "therapist":
                 text = data.get("text", "")
                 if text:
+                    if await check_and_apply_chat_commands(session, text):
+                        continue
                     session.therapist_whisper = text
                     await websocket.send_json({"type": "status", "message": "Whisper Recorded"})
 
@@ -1627,6 +1729,8 @@ async def websocket_chat(websocket: WebSocket):
             elif msg_type == "therapist_instruction" and user and user.role == "therapist":
                 text = data.get("text", "").strip()
                 if text:
+                    if await check_and_apply_chat_commands(session, text):
+                        continue
                     session.therapist_text_instruction = text
                     await websocket.send_json({"type": "status", "message": "Instruction Sent to AI"})
 
