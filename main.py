@@ -746,6 +746,29 @@ async def broadcast_binary_to_therapists(session: SessionState, data: bytes, exc
 async def health():
     return {"status": "ok", "sessions": len(ACTIVE_SESSIONS)}
 
+import subprocess
+DEPLOY_TOKEN = os.getenv("DEPLOY_TOKEN", "pt-deploy-nchynoneytibofjy-2024")
+
+@app.post("/api/deploy")
+async def deploy_webhook(request: Request):
+    """Secure deployment webhook - pulls latest code from GitHub and restarts service."""
+    token = request.headers.get("X-Deploy-Token", "")
+    if token != DEPLOY_TOKEN:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    try:
+        result = subprocess.run(
+            "cd /home/ubuntu/app && git fetch origin main && git reset --hard origin/main && sudo systemctl restart therapy",
+            shell=True, capture_output=True, text=True, timeout=60
+        )
+        return {
+            "status": "deployed",
+            "stdout": result.stdout[-500:] if result.stdout else "",
+            "stderr": result.stderr[-200:] if result.stderr else "",
+            "returncode": result.returncode
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 SECRET_KEY = os.getenv("SECRET_KEY", "my_secret_key")
 ALGORITHM = "HS256"
 import jwt
