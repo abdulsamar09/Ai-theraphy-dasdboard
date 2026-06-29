@@ -98,9 +98,9 @@ def send_approval_email(to_email: str, full_name: str):
     try:
         text = f"""Dear {full_name},
 
-Congratulations! Your clinician account on Psychotherapy Now has been approved by our Clinical Review Team.
+Congratulations! Your therapist account on Psychotherapy Now has been approved by our Clinical Review Team.
 
-You can now log in to the clinician dashboard and start hosting therapy sessions. As a welcome bonus, your account has been credited with a free 20-minute practice session.
+You can now log in to the therapist dashboard and start hosting therapy sessions. As a welcome bonus, your account has been credited with a free 20-minute practice session.
 
 Please log in using the link below:
 https://psychotherapynow.net/register-login.html
@@ -111,16 +111,16 @@ Psychotherapy Now"""
 
         html_content = f"""
         <p>Dear {full_name},</p>
-        <p>Congratulations! We are pleased to inform you that your clinician account on <strong>Psychotherapy Now</strong> has been successfully reviewed and approved by our Clinical Review Team.</p>
-        <p>You can now log in to access your clinician dashboard and start using the platform. As a welcome bonus, your account has been credited with a <strong>free 20-minute practice session</strong> to help you get started.</p>
+        <p>Congratulations! We are pleased to inform you that your therapist account on <strong>Psychotherapy Now</strong> has been successfully reviewed and approved by our Clinical Review Team.</p>
+        <p>You can now log in to access your therapist dashboard and start using the platform. As a welcome bonus, your account has been credited with a <strong>free 20-minute practice session</strong> to help you get started.</p>
         <p style="text-align:center; margin:24px 0;">
           <a href="https://psychotherapynow.net/register-login.html" style="background-color:#1a1a2e; color:#ffffff; text-decoration:none; padding:12px 28px; font-weight:bold; display:inline-block;">Log In to Dashboard</a>
         </p>
-        <p>If you have any questions or require assistance setting up your profile, please do not hesitate to contact our clinician support desk.</p>
+        <p>If you have any questions or require assistance setting up your profile, please do not hesitate to contact our therapist support desk.</p>
         <p>Best regards,<br><strong>The Clinical Review Team</strong><br>Psychotherapy Now</p>
         """
         html = get_html_template("Account Approved", "Account Approved!", html_content)
-        msg = build_email_msg(to_email, "Your Clinician Account has been Approved! - Psychotherapy Now", text, html)
+        msg = build_email_msg(to_email, "Your Therapist Account has been Approved! - Psychotherapy Now", text, html)
         send_email(msg, "Approval", to_email)
     except Exception as e:
         print(f"--- SMTP ERROR (Approval): {str(e)} ---")
@@ -134,9 +134,9 @@ def send_rejection_email(to_email: str, full_name: str):
 
 Thank you for your interest in joining Psychotherapy Now.
 
-After carefully reviewing your application and credentials, our Clinical Review Team has determined that we are unable to approve your clinician account at this time.
+After carefully reviewing your application and credentials, our Clinical Review Team has determined that we are unable to approve your therapist account at this time.
 
-If you believe this is a mistake or if you have updated credential documentation, please reply to this email or contact our clinician support team.
+If you believe this is a mistake or if you have updated credential documentation, please reply to this email or contact our therapist support team.
 
 Best regards,
 The Clinical Review Team
@@ -145,12 +145,12 @@ Psychotherapy Now"""
         html_content = f"""
         <p>Dear {full_name},</p>
         <p>Thank you for your interest in joining <strong>Psychotherapy Now</strong>.</p>
-        <p>After carefully reviewing your submitted credentials and application, we regret to inform you that we are unable to approve your clinician account at this time.</p>
-        <p>If you believe there has been a misunderstanding, or if you have additional supporting documentations to provide, please reach out to our clinician support team for assistance.</p>
+        <p>After carefully reviewing your submitted credentials and application, we regret to inform you that we are unable to approve your therapist account at this time.</p>
+        <p>If you believe there has been a misunderstanding, or if you have additional supporting documentations to provide, please reach out to our therapist support team for assistance.</p>
         <p>Best regards,<br><strong>The Clinical Review Team</strong><br>Psychotherapy Now</p>
         """
         html = get_html_template("Application Update", "Application Update", html_content)
-        msg = build_email_msg(to_email, "Update on Your Clinician Application - Psychotherapy Now", text, html)
+        msg = build_email_msg(to_email, "Update on Your Therapist Application - Psychotherapy Now", text, html)
         send_email(msg, "Rejection", to_email)
     except Exception as e:
         print(f"--- SMTP ERROR (Rejection): {str(e)} ---")
@@ -164,9 +164,9 @@ def send_welcome_email(to_email: str, full_name: str):
 
 Thank you for registering with Psychotherapy Now.
 
-We have successfully received your clinician application. Our team is currently reviewing your state credentials and license documentation.
+We have successfully received your therapist application. Our team is currently reviewing your state credentials and license documentation.
 
-You will receive an email notification as soon as your account is approved.
+Once approved, you can log in directly to access your 20-minute free practice demo automatically in your account dashboard. You will receive an email notification as soon as your account is approved.
 
 Best regards,
 The Clinical Review Team
@@ -175,8 +175,8 @@ Psychotherapy Now"""
         html_content = f"""
         <p>Dear {full_name},</p>
         <p>Thank you for registering with <strong>Psychotherapy Now</strong>.</p>
-        <p>We have successfully received your clinician application. Our Clinical Review Team is currently validating your state licensing details and documents.</p>
-        <p>We will email you with an account activation notice as soon as the review process is complete.</p>
+        <p>We have successfully received your therapist application. Our Clinical Review Team is currently validating your state licensing details and documents.</p>
+        <p>Once approved, you can log in directly to access your 20-minute free practice demo automatically in your account dashboard. We will email you with an account activation notice as soon as the review process is complete.</p>
         <p>Best regards,<br><strong>The Clinical Review Team</strong><br>Psychotherapy Now</p>
         """
         html = get_html_template("Application Received", "Application Received", html_content)
@@ -219,20 +219,21 @@ Psychotherapy Now"""
         traceback.print_exc()
 
 def send_admin_notification_email(user_email: str, full_name: str, user_id: int, base_url: str):
-    print(f"--- ATTEMPTING TO SEND ADMIN NOTIFICATION TO: {SMTP_USER} ---")
+    recipient = "jonkogen@aol.com"
+    print(f"--- ATTEMPTING TO SEND ADMIN NOTIFICATION TO: {recipient} ---")
     try:
         approve_link = f"{base_url}api/admin/quick-approve/{user_id}"
         dashboard_link = f"{base_url}admin.html"
 
         text = f"""Hello Admin,
 
-A new clinician has registered on the platform and is waiting for approval.
+A new therapist has registered on the platform and is waiting for approval.
 
 Details:
 Name: {full_name}
 Email: {user_email}
 
-Click the link below to APPROVE this clinician instantly:
+Click the link below to APPROVE this therapist instantly:
 {approve_link}
 
 Or view full details in the Admin Dashboard:
@@ -242,7 +243,7 @@ Clinical Platform System"""
 
         html_content = f"""
         <p>Hello Admin,</p>
-        <p>A new clinician has registered on the platform and is waiting for approval.</p>
+        <p>A new therapist has registered on the platform and is waiting for approval.</p>
         <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin: 20px 0;">
           <strong>Name:</strong> {full_name}<br>
           <strong>Email:</strong> {user_email}
@@ -253,9 +254,9 @@ Clinical Platform System"""
         <p>Or view full details in the <a href="{dashboard_link}">Admin Dashboard</a>.</p>
         <p>Clinical Platform System</p>
         """
-        html = get_html_template("New Registration", "New Clinician Registered", html_content)
-        msg = build_email_msg(SMTP_USER, f"New Clinician Registration: {full_name}", text, html)
-        send_email(msg, "Admin Notification", SMTP_USER)
+        html = get_html_template("New Registration", "New Therapist Registered", html_content)
+        msg = build_email_msg(recipient, f"New Therapist Registration: {full_name}", text, html)
+        send_email(msg, "Admin Notification", recipient)
     except Exception as e:
         print(f"--- SMTP ERROR (Admin Notification): {str(e)} ---")
         import traceback
@@ -422,7 +423,7 @@ class SessionState:
         self.approach = "CBT"
         self.patient_age = "Pending"
         self.patient_sex = "Pending"
-        self.session_mode = "ai_therapist_training"
+        self.session_mode = "supervised_client"
         self.patient_profile = {}
         self.roleplay_profile = {}
         self.start_time: Optional[float] = None
@@ -495,12 +496,13 @@ def load_master_prompt():
 MASTER_THERAPIST_PROMPT = load_master_prompt()
 
 def get_system_prompt(session: SessionState) -> str:
-    mode = getattr(session, "session_mode", "ai_therapist_training")
+    mode = getattr(session, "session_mode", "supervised_client")
+    ai_role = getattr(session, "ai_role", "therapist")
     
     base = "You are an AI on a Clinical Therapy Training & Supervision Platform called Psychotherapy Now.\n\n"
     
-    if mode == "ai_patient_roleplay":
-        # AI is patient, clinician/trainee is therapist.
+    if ai_role == "patient":
+        # AI is patient, trainee is therapist.
         profile = getattr(session, "patient_profile", {})
         age = profile.get("age", session.patient_age or "30")
         gender = profile.get("gender", session.patient_sex or "Male")
@@ -531,14 +533,14 @@ def get_system_prompt(session: SessionState) -> str:
             role_desc = (
                 "Role: ACT AS THE THERAPIST under direct live supervision.\n"
                 f"You are conducting a live session with a client ({age}y/o {sex}).\n"
-                "A licensed clinician is supervising this session and may send you private directives or instructions. "
+                "A licensed therapist is supervising this session and may send you private directives or instructions. "
                 "Respond directly to the client as their therapist, keeping your tone professional, empathetic, and therapeutically sound. "
                 "Maintain clinical boundaries."
             )
         elif mode == "clinician_as_client":
             role_desc = (
                 "Role: ACT AS THE THERAPIST.\n"
-                "You are conducting a session where the user is a clinician experiencing the session as a client (for personal exploration or training).\n"
+                "You are conducting a session where the user is a therapist experiencing the session as a client (for personal exploration or training).\n"
                 "Help them explore their thoughts/feelings from the client's perspective."
             )
         elif mode == "ai_therapist_training":
@@ -589,7 +591,7 @@ async def check_and_apply_chat_commands(session: SessionState, text: str) -> boo
     lower_text = text.lower().strip()
     mode_changed = False
     
-    # Check for "role play a patient" or similar (Mode 2)
+    # Check for "role play a patient" or similar (sets ai_role=patient under training therapist mode)
     if any(phrase in lower_text for phrase in [
         "role play a patient", "roleplay a patient", "role-play a patient",
         "act as a patient", "be a patient", "be the patient", "simulate a patient",
@@ -597,7 +599,7 @@ async def check_and_apply_chat_commands(session: SessionState, text: str) -> boo
         "play a patient", "play patient", "play a client", "play client",
         "role play patient", "roleplay patient", "role-play patient"
     ]):
-        session.session_mode = "ai_patient_roleplay"
+        session.session_mode = "ai_therapist_training"
         session.ai_role = "patient"
         mode_changed = True
     # Check for "role play a therapist" / training modality (Mode 1)
@@ -729,13 +731,14 @@ async def session_credit_deductor():
 async def startup_event():
     asyncio.create_task(session_credit_deductor())
 
-async def broadcast_binary_to_therapists(session: SessionState, data: bytes):
+async def broadcast_binary_to_therapists(session: SessionState, data: bytes, exclude: Optional[WebSocket] = None):
     """Send raw binary audio data to all connected therapists."""
     for ws in list(session.therapist_wss):
-        try:
-            await ws.send_bytes(data)
-        except:
-            pass
+        if ws != exclude:
+            try:
+                await ws.send_bytes(data)
+            except:
+                pass
 
 # --- API ENDPOINTS ---
 
@@ -1198,7 +1201,7 @@ async def purchase_minutes(
         raise HTTPException(status_code=401, detail="User not found")
         
     if db_user.role != "therapist":
-        raise HTTPException(status_code=403, detail="Only clinicians can purchase clinical minutes.")
+        raise HTTPException(status_code=403, detail="Only therapists can purchase clinical minutes.")
         
     paypal_client_id = os.getenv("PAYPAL_CLIENT_ID")
     paypal_client_secret = os.getenv("PAYPAL_CLIENT_SECRET")
@@ -1313,9 +1316,13 @@ async def text_to_speech(req: Request):
     except Exception as e:
         print(f"TTS Error: {e}")
 async def generate_ai_response(session: SessionState, sid: str):
+    is_to_therapist = False
+    if session.transcript and session.transcript[-1]["role"] == "therapist":
+        is_to_therapist = True
+
     prompt_messages = [{"role": "system", "content": get_system_prompt(session)}]
     for t in session.transcript[-10:]:
-        m_role = "user" if t["role"] == "patient" else "assistant"
+        m_role = "assistant" if t["role"] in ["ai", "ai_private"] else "user"
         prompt_messages.append({"role": m_role, "content": t["text"]})
 
     session.therapist_whisper = ""
@@ -1329,7 +1336,7 @@ async def generate_ai_response(session: SessionState, sid: str):
             if delta:
                 full_text += delta
                 # Send chunk to patient
-                if session.patient_ws:
+                if session.patient_ws and not is_to_therapist:
                     try:
                         await session.patient_ws.send_json({"type": "chunk", "text": delta})
                     except:
@@ -1341,16 +1348,32 @@ async def generate_ai_response(session: SessionState, sid: str):
                     except:
                         pass
 
-        session.transcript.append({"role": "ai", "text": full_text})
-        # Send final to everyone
-        await broadcast_to_session(session, {
-            "type": "final",
-            "text": full_text,
-            "voice_gender": session.voice_gender,
-            "tempo": session.tempo,
-            "pitch": session.pitch,
-            "speed": session.speed,
-        })
+        role_to_store = "ai_private" if is_to_therapist else "ai"
+        session.transcript.append({"role": role_to_store, "text": full_text})
+        
+        # Send final message
+        if is_to_therapist:
+            for ws in list(session.therapist_wss):
+                try:
+                    await ws.send_json({
+                        "type": "final_private",
+                        "text": full_text,
+                        "voice_gender": session.voice_gender,
+                        "tempo": session.tempo,
+                        "pitch": session.pitch,
+                        "speed": session.speed,
+                    })
+                except:
+                    pass
+        else:
+            await broadcast_to_session(session, {
+                "type": "final",
+                "text": full_text,
+                "voice_gender": session.voice_gender,
+                "tempo": session.tempo,
+                "pitch": session.pitch,
+                "speed": session.speed,
+            })
     except Exception as e:
         print(f"LLM Error: {e}")
         if session.patient_ws:
@@ -1395,7 +1418,7 @@ async def websocket_chat(websocket: WebSocket):
                         sid = parts[1]
                         session = ACTIVE_SESSIONS.get(sid)
                         if session and session.therapist_wss:
-                            await broadcast_binary_to_therapists(session, audio_data)
+                            await broadcast_binary_to_therapists(session, audio_data, exclude=websocket)
                 except Exception:
                     pass  # Malformed binary, ignore
                 continue
@@ -1495,7 +1518,7 @@ async def websocket_chat(websocket: WebSocket):
                     "patient_sex": session.patient_sex,
                     "approach": session.approach,
                     "mode": session.mode,
-                    "session_mode": getattr(session, "session_mode", "ai_therapist_training"),
+                    "session_mode": getattr(session, "session_mode", "supervised_client"),
                     "transcript": session.transcript,
                     "session_active": session.session_active,
                     "patient_online": True,
@@ -1563,7 +1586,7 @@ async def websocket_chat(websocket: WebSocket):
                     "patient_sex": session.patient_sex,
                     "approach": session.approach,
                     "mode": session.mode,
-                    "session_mode": getattr(session, "session_mode", "ai_therapist_training"),
+                    "session_mode": getattr(session, "session_mode", "supervised_client"),
                     "patient_profile": getattr(session, "patient_profile", {}),
                     "roleplay_profile": getattr(session, "roleplay_profile", {}),
                     "transcript": session.transcript,
@@ -1737,7 +1760,11 @@ async def websocket_chat(websocket: WebSocket):
             # 8. THERAPIST DIRECT MESSAGE (broadcast to log, legacy)
             elif msg_type == "therapist_message" and user and user.role == "therapist":
                 text = data.get("text", "")
+                session.transcript.append({"role": "therapist", "text": text})
                 await broadcast_to_session(session, {"type": "therapist_reply", "text": text})
+                
+                # Generate AI response
+                await generate_ai_response(session, sid)
 
     except WebSocketDisconnect:
         if current_sid in ACTIVE_SESSIONS:

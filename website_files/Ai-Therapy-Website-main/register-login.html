@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Licensed Clinician Portal</title>
+  <title>Licensed Therapist Portal</title>
   <!-- custom css link -->
   <link rel="stylesheet" href="./assets/css/style.css">
   <style>
@@ -430,6 +430,30 @@
     main {
        padding-top: 134px;
     }
+    .password-wrapper {
+      position: relative;
+      width: 100%;
+    }
+    .password-wrapper input {
+      padding-right: 65px;
+    }
+    .toggle-password-btn {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--muted2);
+      cursor: pointer;
+      padding: 5px 8px;
+      font-size: 13px;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    .toggle-password-btn:hover {
+      color: var(--accent);
+    }
   </style>
 </head>
 <body id="top">
@@ -482,8 +506,8 @@
   <div class="wrap">
     <div class="hero">
       <div>
-        <div class="badge">Psychotherapy Platform for Licensed Clinicians</div>
-        <h1>Clinician registration and login</h1>
+        <div class="badge">Psychotherapy Platform for Licensed Therapists</div>
+        <h1>Therapist registration and login</h1>
         <div class="sub">
         </div>
       </div>
@@ -504,12 +528,12 @@
         <div class="top-row">
           <div>
             <div class="eyebrow">Registration</div>
-            <h2>Create your clinician account</h2>
+            <h2>Create your therapist account</h2>
             <p class="help">
               Complete all required fields. Until license is accepted.
             </p>
           </div>
-          <div class="tag">License verification required</div>
+          <div class="tag">Copy of license required</div>
         </div>
 
         <form id="regForm" novalidate>
@@ -588,7 +612,10 @@
             </div>
             <div class="field">
               <label for="password">Create password</label>
-              <input id="password" type="password" placeholder="8+ characters, letters and numbers" />
+              <div class="password-wrapper">
+                <input id="password" type="password" placeholder="8+ characters, letters and numbers" />
+                <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('password', this)">Show</button>
+              </div>
               <div class="tiny">Minimum 8 characters. Must include letters and numbers.</div>
               <div class="error" id="err-password">Use at least 8 characters with letters and numbers.</div>
             </div>
@@ -596,7 +623,10 @@
 
           <div class="field">
             <label for="confirmPassword">Confirm password</label>
-            <input id="confirmPassword" type="password" placeholder="Re-enter password" />
+            <div class="password-wrapper">
+              <input id="confirmPassword" type="password" placeholder="Re-enter password" />
+              <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('confirmPassword', this)">Show</button>
+            </div>
             <div class="error" id="err-confirmPassword">Passwords do not match.</div>
           </div>
 
@@ -620,7 +650,7 @@
 
           <div id="pendingNotice" class="notice pending">
             Registration submitted. Current status: <strong>Pending review</strong>.
-            Upon approval, you will receive one 20-minute free session.
+            Once approved, you can log in directly and your 20-minute free practice demo will be available automatically.
             Login remains disabled until account activation.
           </div>
         </form>
@@ -641,7 +671,10 @@
 
           <div class="field">
             <label for="loginPassword">Password</label>
-            <input id="loginPassword" type="password" placeholder="Enter password" />
+            <div class="password-wrapper">
+              <input id="loginPassword" type="password" placeholder="Enter password" />
+              <button type="button" class="toggle-password-btn" onclick="togglePasswordVisibility('loginPassword', this)">Show</button>
+            </div>
           </div>
 
           <div class="forgot">
@@ -689,6 +722,17 @@
   <script src="./assets/js/auth-service.js"></script>
   <script src="./assets/js/router.js"></script>
   <script>
+    function togglePasswordVisibility(inputId, btnEl) {
+      const input = document.getElementById(inputId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btnEl.textContent = 'Hide';
+      } else {
+        input.type = 'password';
+        btnEl.textContent = 'Show';
+      }
+    }
+
     // Access Control: Enforce Terms of Use
     if (localStorage.getItem('termsAccepted') !== 'true') {
       window.location.href = 'terms.html?msg=required';
@@ -896,7 +940,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('registered') === 'true') {
       setStatus('pending');
-      pendingNotice.innerHTML = 'Registration submitted successfully! Your account is now <strong>Pending review</strong> by our clinical team. You will be notified via email once approved.';
+      pendingNotice.innerHTML = 'Registration submitted successfully! Your account is now <strong>Pending review</strong> by our clinical team. You will be notified via email once approved. Once approved, you can log in directly to access your 20-minute free practice demo automatically.';
       pendingNotice.style.display = 'block';
       alert('Signup successful! Your account is pending clinical review.');
       window.history.replaceState({}, document.title, window.location.pathname);

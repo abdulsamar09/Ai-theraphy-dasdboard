@@ -129,9 +129,9 @@ const updateUserUsage = async function () {
       const data = await response.json();
       const mins = data.wallet_status.minutes_remaining;
       const minsFixed = parseFloat(mins).toFixed(1);
-      const userName = data.user_profile.full_name || "Clinician";
+      const userName = data.user_profile.full_name || "Therapist";
       const userEmail = data.user_profile.email || "";
-      const userRole = data.user_profile.role || "Licensed Clinician";
+      const userRole = data.user_profile.role || "Licensed Therapist";
       
       // 1. Update Header with Premium Profile Dropdown
       const authContainer = document.querySelector('.auth-buttons-container');
@@ -322,7 +322,7 @@ const updateUserUsage = async function () {
             
             <div class="dropdown-content" id="profileDropdown">
               <div class="info-group">
-                <span class="info-label">Active Clinician</span>
+                <span class="info-label">Active Therapist</span>
                 <span class="info-value" style="font-size: 16px;">${userName}</span>
               </div>
               
@@ -375,7 +375,7 @@ const updateUserUsage = async function () {
           <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: var(--shadow-1); text-align: center; margin-bottom: 40px; border: 2px solid var(--verdigris); margin-inline: 15px;">
             <h3 class="headline-sm" style="color: var(--midnight-green); margin-bottom: 10px;">Welcome back, ${userName}</h3>
             <div style="font-size: clamp(32px, 8vw, 48px); font-weight: bold; color: var(--verdigris); margin: 10px 0;">${minsFixed} <span style="font-size: 20px; color: var(--independece);">Minutes Remaining</span></div>
-            <p style="color: var(--independece); font-size: 14px; max-width: 500px; margin: 0 auto;">Your clinician account is active and ready for AI-assisted sessions.</p>
+            <p style="color: var(--independece); font-size: 14px; max-width: 500px; margin: 0 auto;">Your therapist account is active and ready for AI-assisted sessions.</p>
             <div style="display: flex; gap: 15px; justify-content: center; margin-top: 25px; flex-wrap: wrap;">
               <a href="/dashboard/" class="btn" style="margin: 0; min-width: 160px; justify-content: center;">Open Dashboard</a>
               <button onclick="handleLogout()" class="btn" style="margin: 0; background: #ff4d4d; min-width: 160px; justify-content: center;">Logout Account</button>

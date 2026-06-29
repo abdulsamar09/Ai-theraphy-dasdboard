@@ -2083,3 +2083,7 @@ select option {
 .drawer-logo {
   height: 38px;
 }
+
+#clinicianWorkspaceBody.hide-live-text .workspace-block {
+  display: none !important;
+}

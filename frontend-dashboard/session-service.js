@@ -19,6 +19,11 @@ class SessionService {
         } else {
              this.token = localStorage.getItem('access_token');
         }
+
+        // If not a guest flow and no token/refresh token exists, redirect to login page immediately
+        if (!this.isGuestFlow && !this.token && !localStorage.getItem('refresh_token')) {
+            this.showLoginOverlay();
+        }
     }
 
     async bootstrap() {

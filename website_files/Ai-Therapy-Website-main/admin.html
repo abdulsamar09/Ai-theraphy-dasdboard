@@ -377,14 +377,14 @@
         <div class="value" style="color: var(--warning);" id="statPending">-</div>
       </div>
       <div class="stat-card">
-        <h3>Active Clinicians</h3>
+        <h3>Active Therapists</h3>
         <div class="value" style="color: var(--success);" id="statApproved">-</div>
       </div>
     </div>
 
     <div class="table-container">
       <div class="table-header">
-        <h2>Clinician Applications & Users</h2>
+        <h2>Therapist Applications & Users</h2>
       </div>
       <div class="table-wrapper">
         <table>
@@ -532,7 +532,7 @@
           </td>
           <td>
               <div class="user-info">
-                  <span style="color: ${roleColor}; font-weight: 600; font-size:13px; text-transform: capitalize;">${u.role === 'therapist' ? (u.license_type && u.license_type !== 'N/A' ? u.license_type : 'Clinician') : u.role}</span>
+                  <span style="color: ${roleColor}; font-weight: 600; font-size:13px; text-transform: capitalize;">${u.role === 'therapist' ? (u.license_type && u.license_type !== 'N/A' ? u.license_type : 'Therapist') : u.role}</span>
                   ${u.role === 'therapist' ? `<span class="user-meta">State: ${st} ${u.license_number && u.license_number !== 'N/A' ? '| Lic#: ' + u.license_number : ''}</span>` : ''}
               </div>
           </td>
@@ -542,7 +542,7 @@
           </td>
           <td>
             <div class="actions">
-              ${u.role === 'therapist' && u.status !== 'approved' ? `<button class="btn-approve" onclick="updateStatus(${u.id}, 'approved')" title="Approve Clinician"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Approve</button>` : ''}
+              ${u.role === 'therapist' && u.status !== 'approved' ? `<button class="btn-approve" onclick="updateStatus(${u.id}, 'approved')" title="Approve Therapist"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Approve</button>` : ''}
               ${u.role === 'therapist' && u.status === 'approved' ? `<button class="btn-reject" onclick="updateStatus(${u.id}, 'pending')" title="Revoke Approval"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Revoke</button>` : ''}
               ${u.role === 'therapist' && u.status !== 'rejected' ? `<button class="btn-danger" onclick="updateStatus(${u.id}, 'rejected')" title="Reject Application"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg> Reject</button>` : ''}
               

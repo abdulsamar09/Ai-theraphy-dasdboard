@@ -66,6 +66,7 @@ async function initializeDashboard() {
         return bootstrapData;
     } catch (err) {
         console.error('Initialization Error:', err);
+        sessionService.showLoginOverlay();
     }
 }
 

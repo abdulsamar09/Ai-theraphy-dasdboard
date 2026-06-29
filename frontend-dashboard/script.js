@@ -99,7 +99,7 @@ class TherapyDashboard {
         this.activeChannel = null;
 
         // Session mode selected state
-        this.sessionMode = "ai_therapist_training"; // default
+        this.sessionMode = "supervised_client"; // default
 
         // Comfort settings
         this.textSize = "medium";
@@ -213,6 +213,21 @@ class TherapyDashboard {
                 }
             }
         });
+
+        // Toggle live text display checkbox listener
+        const toggleCheckbox = document.getElementById("toggleLiveTextCheckbox");
+        if (toggleCheckbox) {
+            toggleCheckbox.addEventListener("change", (e) => {
+                const body = document.getElementById("clinicianWorkspaceBody");
+                if (body) {
+                    if (e.target.checked) {
+                        body.classList.remove("hide-live-text");
+                    } else {
+                        body.classList.add("hide-live-text");
+                    }
+                }
+            });
+        }
     }
 
     toggleMobileDrawer(open) {
@@ -364,9 +379,9 @@ class TherapyDashboard {
         const titleEl = document.getElementById("modeSetupTitle");
         if (titleEl) {
             const formattedName = mode === "supervised_client" ? "AI-Assisted Therapy Session" :
-                                  mode === "clinician_as_client" ? "Clinician as client" :
-                                  mode === "ai_therapist_training" ? "Training Modality" :
-                                  "AI as Patient";
+                                  mode === "clinician_as_client" ? "Therapist as client" :
+                                  mode === "ai_therapist_training" ? "AI as Training Therapist" :
+                                  "AI as Training Therapist";
             titleEl.innerText = "SETUP FOR " + formattedName.toUpperCase();
         }
 
@@ -381,9 +396,9 @@ class TherapyDashboard {
         if (statusModeEl) {
             const formattedNames = {
                 supervised_client: "AI-Assisted Therapy",
-                clinician_as_client: "Clinician as Client",
-                ai_therapist_training: "Training Modality",
-                ai_patient_roleplay: "AI as Patient"
+                clinician_as_client: "Therapist as Client",
+                ai_therapist_training: "AI as Training Therapist",
+                ai_patient_roleplay: "AI as Training Therapist"
             };
             statusModeEl.innerText = formattedNames[mode] || mode;
         }
@@ -448,7 +463,7 @@ class TherapyDashboard {
             this.wsSend({ type: "therapist_instruction", text: text });
             
             // Append note block locally
-            this.appendWorkspaceBlock("note", "CLINICIAN NOTE", text);
+            this.appendWorkspaceBlock("note", "THERAPIST NOTE", text);
             input.value = "";
             this.toast("Private instruction sent to AI");
         }
@@ -536,10 +551,6 @@ class TherapyDashboard {
         const isTherapist = this.user.role === "therapist";
         const clinicianView = document.getElementById("clinicianView");
         const patientView = document.getElementById("patientView");
-        const debugBtn = document.getElementById("debugAddMinutesBtn");
-        if (debugBtn) {
-            debugBtn.style.display = isTherapist ? "inline-block" : "none";
-        }
 
         if (isTherapist) {
             document.body.classList.add("role-therapist");
@@ -548,7 +559,7 @@ class TherapyDashboard {
             if (patientView) patientView.style.display = "none";
 
             // Default Setup Mode Card
-            this.selectSessionMode("ai_therapist_training");
+            this.selectSessionMode("supervised_client");
 
             const displayEl = document.getElementById("clinicianSessionIdDisplay");
             if (displayEl) displayEl.value = this.sessionId || this.user.fixed_room_id || "";
@@ -648,7 +659,7 @@ class TherapyDashboard {
                     const statusJoOnline = document.getElementById("statusJoinOnline");
                     
                     if (statusPatOnline) {
-                        statusPatOnline.innerText = data.patient_online ? "🟢 Active" : "⚫ Offline";
+                        statusPatOnline.innerText = data.patient_online ? "Connected" : "Not Connected";
                         statusPatOnline.style.color = data.patient_online ? "var(--green)" : "var(--muted)";
                     }
                     if (statusJoOnline) {
@@ -671,9 +682,9 @@ class TherapyDashboard {
                         if (statusModeLabel) {
                             const formattedNames = {
                                 supervised_client: "AI-Assisted Therapy",
-                                clinician_as_client: "Clinician as Client",
-                                ai_therapist_training: "Training Modality",
-                                ai_patient_roleplay: "AI as Patient"
+                                clinician_as_client: "Therapist as Client",
+                                ai_therapist_training: "AI as Training Therapist",
+                                ai_patient_roleplay: "AI as Training Therapist"
                             };
                             statusModeLabel.innerText = formattedNames[data.session_mode] || data.session_mode;
                         }
@@ -725,12 +736,15 @@ class TherapyDashboard {
                     if (patEmpty) patEmpty.style.display = "none";
 
                     data.transcript.forEach(msg => {
-                        const sender = msg.role === "patient" ? "CLIENT" : "AI";
-                        const patSender = msg.role === "patient" ? "YOU" : "AI THERAPIST";
-                        
                         if (this.user.role === "therapist") {
-                            this.appendWorkspaceBlock(msg.role, sender, msg.text);
+                            const sender = msg.role === "patient" ? "CLIENT" : 
+                                           msg.role === "therapist" ? "THERAPIST RESPONSE" : "AI";
+                            const blockType = msg.role === "therapist" ? "note" :
+                                              msg.role === "ai_private" ? "ai" : msg.role;
+                            this.appendWorkspaceBlock(blockType, sender, msg.text);
                         } else {
+                            if (msg.role === "therapist" || msg.role === "ai_private") return;
+                            const patSender = msg.role === "patient" ? "YOU" : "AI THERAPIST";
                             this.appendPatientBubble(msg.role === "patient" ? "you" : "ai", patSender, msg.text);
                         }
                     });
@@ -772,6 +786,7 @@ class TherapyDashboard {
                 break;
 
             case "final":
+            case "final_private":
                 this.processTextForTTS("", true);
                 this.updateLiveAIStream(data.text, true);
                 break;
@@ -920,7 +935,7 @@ class TherapyDashboard {
 
     buyMinutes() {
         if (this.user.role !== "therapist") {
-            this.toast("Only clinicians can purchase platform minutes.");
+            this.toast("Only therapists can purchase platform minutes.");
             return;
         }
 
@@ -1046,23 +1061,26 @@ class TherapyDashboard {
             feedbackEl.innerText = "";
         }
 
-        const linkInput = document.getElementById("patientLinkInput");
-        const patientLink = linkInput ? linkInput.value.trim() : "";
-        
-        // 1. Check if patient link is generated
-        if (!patientLink) {
-            this.showInviteFeedback("Please generate a patient link first.", "error");
-            return;
-        }
-
         const emailInput = document.getElementById("patientInviteEmailInput");
         const email = emailInput ? emailInput.value.trim() : "";
 
-        // 2. Validate email input
+        // 1. Validate email input
         if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
             this.showInviteFeedback("Please enter a valid patient email.", "error");
             return;
         }
+
+        // 2. Generate room / session ID if not already set
+        if (!this.sessionId) {
+            this.sessionId = this.user.fixed_room_id || ("ROOM-" + Math.random().toString(36).substring(2, 6).toUpperCase());
+        }
+
+        const base = window.location.origin + window.location.pathname;
+        const patientLink = `${base}?role=patient&sid=${this.sessionId}`;
+
+        // Keep local display inputs updated/in sync just in case
+        const linkInput = document.getElementById("patientLinkInput");
+        if (linkInput) linkInput.value = patientLink;
 
         try {
             const sendBtn = document.getElementById("invite-send-btn");
@@ -1097,7 +1115,13 @@ class TherapyDashboard {
             const sendBtn = document.getElementById("invite-send-btn");
             if (sendBtn) {
                 sendBtn.disabled = false;
-                sendBtn.innerText = "Send Invite";
+                sendBtn.innerHTML = `
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3 19v-8.93a2 2 0 01.89-1.664l8-5.333a2 2 0 012.22 0l8 5.333A2 2 0 0121 10.07V19M3 19a2 2 0 002 2h14a2 2 0 002-2M3 19l6.75-4.5M21 19l-6.75-4.5m0 0l-2.25-1.5a2 2 0 00-2.22 0l-2.25 1.5m4.5 0v-4" />
+                    </svg>
+                    Send Invite`;
             }
         }
     }
@@ -1230,7 +1254,12 @@ class TherapyDashboard {
                     const res = await fetch(CONFIG.ENDPOINTS.STT, { method: "POST", body: fd });
                     const data = await res.json();
                     if (data.text) {
-                        const type = channel === "patient" ? "user_message" : "whisper";
+                        let type;
+                        if (this.user.role === "therapist") {
+                            type = channel === "patient" ? "therapist_message" : "whisper";
+                        } else {
+                            type = "user_message";
+                        }
                         this.wsSend({ type, text: data.text });
 
                         if (type === "whisper" && this.user.role === "therapist") {
@@ -1449,13 +1478,8 @@ class TherapyDashboard {
     }
 
     handlePatientAudioBlob(arrayBuffer) {
-        if (this.user.role !== "therapist") return;
-        
-        if (!this.audioStreamer) {
-            this.audioStreamer = new PatientAudioStreamer(this.patientAudioPlayer);
-        }
-        
-        this.audioStreamer.push(arrayBuffer);
+        // Patient's audio is not played back to the therapist to prevent loopback/echo and duplicates.
+        return;
     }
 
     updateCreditsUI() {
